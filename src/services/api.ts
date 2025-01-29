@@ -64,35 +64,46 @@ export const api = {
         }
         return response.json();
     },
+
     updateNote: async (id: number, note: Partial<Note>): Promise<Note> => {
-        const response = await fetch(`${API_URL}/notes/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                id,
-                title: note.title || '',
-                content: note.content || '',
-                category: note.category || '',
-                userId: note.userId
-            }),
-        });
-    
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Failed to update note');
-        }
-    
         try {
-            const data = await response.json();
-            if (!data) {
-                throw new Error('No data received from server');
+            const response = await fetch(`${API_URL}/notes/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    id,
+                    title: note.title || '',
+                    content: note.content || '',
+                    category: note.category || '',
+                    userId: note.userId
+                }),
+            });
+
+            if (response.status === 204) {
+                // If no content, return the original note data
+                return {
+                    id,
+                    title: note.title || '',
+                    content: note.content || '',
+                    category: note.category || '',
+                    userId: note.userId,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                } as Note;
             }
-            return data;
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Failed to update note');
+            }
+
+            return response.json();
         } catch (err) {
-            console.error('Error parsing response:', err);
-            throw new Error('Failed to parse server response');
+            console.error('Update error:', err);
+            throw err;
         }
     },
 
