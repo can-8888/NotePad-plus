@@ -8,6 +8,7 @@ import { useAuth } from './contexts/AuthContext';
 import { Note, NoteApiResponse } from './types/Note';
 import { api } from './services/api';
 import { ShareNoteDialog } from './components/ShareNoteDialog';
+import { signalRService } from './services/signalR';
 
 type SortOption = 'date-desc' | 'date-asc' | 'title' | 'category';
 
@@ -23,6 +24,7 @@ function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
 
     useEffect(() => {
         if (user) {
@@ -30,6 +32,13 @@ function App() {
             loadAllNotes();
         }
     }, [user]); // Only depend on user
+
+    // Initialize SignalR connection
+    useEffect(() => {
+        if (user) {
+            signalRService.startConnection().catch(console.error);
+        }
+    }, [user]);
 
     const loadAllNotes = async () => {
         try {
@@ -85,50 +94,26 @@ function App() {
         }
     };
 
+    const handleCreateNote = () => {
+        setSelectedNote(undefined);
+        setIsCreating(true);
+    };
+
     const handleSaveNote = async (noteData: Partial<Note>) => {
         try {
-            setError(null);
-            if (!user) {
-                throw new Error('User not authenticated');
-            }
-
-            console.log('Saving note:', noteData);
-
-            let savedNote: Note;
-            if (selectedNote) {
-                // Update existing note
-                savedNote = await api.updateNote(selectedNote.id, {
-                    ...noteData,
-                    userId: user.id
-                });
+            if (noteData.id) {
+                // Updating existing note
+                await api.updateNote(noteData.id, noteData);
             } else {
-                // Create new note
-                savedNote = await api.createNote({
-                    ...noteData,
-                    userId: user.id
-                });
+                // Creating new note
+                await api.createNote(noteData);
             }
-
-            console.log('Note saved successfully:', savedNote);
-
-            // Update the notes array immediately
-            setNotes(prevNotes => {
-                if (selectedNote) {
-                    // Update existing note
-                    return prevNotes.map(note => 
-                        note.id === savedNote.id ? savedNote : note
-                    );
-                } else {
-                    // Add new note
-                    return [...prevNotes, savedNote];
-                }
-            });
-
-            // Clear the selected note
+            await loadAllNotes();
             setSelectedNote(undefined);
+            setIsCreating(false);
         } catch (err) {
-            console.error('Save note error:', err);
             setError('Failed to save note');
+            console.error(err);
         }
     };
 
@@ -342,13 +327,27 @@ function App() {
                     <div className="loading">Loading...</div>
                 ) : (
                     <>
-                        <div className="left-panel">
-                            <NoteEditor 
-                                note={selectedNote}
-                                onSave={handleSaveNote}
-                                onCancel={() => setSelectedNote(undefined)}
-                            />
-                        </div>
+                        <aside className="left-panel">
+                            <div className="note-editor-container">
+                                {isCreating || selectedNote ? (
+                                    <NoteEditor 
+                                        note={selectedNote}
+                                        onSave={handleSaveNote}
+                                        onCancel={() => {
+                                            setSelectedNote(undefined);
+                                            setIsCreating(false);
+                                        }}
+                                    />
+                                ) : (
+                                    <button 
+                                        className="create-note-button"
+                                        onClick={handleCreateNote}
+                                    >
+                                        Create New Note
+                                    </button>
+                                )}
+                            </div>
+                        </aside>
                         <div className="right-panel">
                             <NoteList 
                                 notes={filteredAndSortedNotes}

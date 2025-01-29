@@ -1,7 +1,7 @@
 import { Note, User, NoteApiResponse } from '../types/Note';
 import { LoginRequest, RegisterRequest } from '../types/Auth';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Update the user type to match C# casing
 interface CurrentUser {
@@ -9,19 +9,15 @@ interface CurrentUser {
     Username: string;  // Changed from username to Username
 }
 
-// Update the getCurrentUser function
-const getCurrentUser = (): CurrentUser | null => {
-    const userJson = localStorage.getItem('user');
-    console.log('User from localStorage:', userJson);
-    if (!userJson) return null;
+// Export getCurrentUser function
+export const getCurrentUser = (): CurrentUser | null => {
     try {
+        const userJson = localStorage.getItem('user');
+        if (!userJson) return null;
+
         const user = JSON.parse(userJson);
-        console.log('Parsed user:', user);
-        // Update validation to check for Id instead of id
-        if (!user || typeof user.Id !== 'number') {
-            console.log('Invalid user object:', user);
-            return null;
-        }
+        if (!user?.Id || typeof user.Id !== 'number') return null;
+
         return user;
     } catch (err) {
         console.error('Error parsing user:', err);

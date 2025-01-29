@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NotepadPlusApi.Data;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,9 @@ builder.Services.AddControllers();
 // Add Swagger/OpenAPI support
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add SignalR
+builder.Services.AddSignalR();
 
 // Configure CORS
 builder.Services.AddCors(options =>
@@ -38,6 +42,9 @@ app.UseCors("AllowAll");
 
 // Map controllers
 app.MapControllers();
+
+// Map the hub
+app.MapHub<NoteHub>("/notehub");
 
 // Simple test endpoint
 app.MapGet("/test", () => "API is working");
