@@ -33,9 +33,10 @@ public class NotesController : ControllerBase
                 return BadRequest(new { message = "User ID not provided" });
             }
 
+            // Filter notes by the current user's ID
             var notes = await _context.Notes
                 .Include(n => n.User)
-                .Where(n => n.UserId == userId)
+                .Where(n => n.UserId == userId) // Only get notes for the current user
                 .ToListAsync();
 
             _logger.LogInformation($"Found {notes.Count} notes for user {userId}");
@@ -74,23 +75,26 @@ public class NotesController : ControllerBase
     {
         try
         {
-            // Validate user ID from headers
             var userIdString = Request.Headers["UserId"].FirstOrDefault();
+            _logger.LogInformation($"Creating note for user ID: {userIdString}");
+
             if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
             {
                 return BadRequest(new { message = "User ID not provided" });
             }
 
-            // Set creation time
+            // Set creation time and user ID
             note.CreatedAt = DateTime.UtcNow;
             note.UpdatedAt = DateTime.UtcNow;
-            note.UserId = userId;  // Set the user ID from the authenticated user
-            
+            note.UserId = userId;
+            note.IsPublic = false; // Default to private
+
+            _logger.LogInformation($"Adding note: {note.Title}");
             _context.Notes.Add(note);
             await _context.SaveChangesAsync();
 
             // Return with lowercase property names
-            return Ok(new
+            var response = new
             {
                 id = note.Id,
                 title = note.Title,
@@ -100,7 +104,10 @@ public class NotesController : ControllerBase
                 updatedAt = note.UpdatedAt,
                 userId = note.UserId,
                 isPublic = note.IsPublic
-            });
+            };
+
+            _logger.LogInformation($"Note created successfully with ID: {note.Id}");
+            return Ok(response);
         }
         catch (Exception ex)
         {

@@ -7,24 +7,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null;
-        options.JsonSerializerOptions.WriteIndented = true;
-    });
+// Add controllers
+builder.Services.AddControllers();
+
+// Add Swagger/OpenAPI support
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
-    {
-        builder.WithOrigins("http://localhost:3000")  // React app URL
-               .AllowAnyMethod()
-               .AllowAnyHeader();
-    });
+    options.AddPolicy("AllowAll", policy =>
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader());
 });
 
 var app = builder.Build();
@@ -36,13 +32,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Remove HTTPS redirection
-//app.UseHttpsRedirection();
+// Use routing and CORS
+app.UseRouting();
+app.UseCors("AllowAll");
 
-// Use CORS before routing
-app.UseCors();
-
-app.UseAuthorization();
+// Map controllers
 app.MapControllers();
+
+// Simple test endpoint
+app.MapGet("/test", () => "API is working");
 
 app.Run();

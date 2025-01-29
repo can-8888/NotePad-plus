@@ -1,4 +1,4 @@
-import { Note, User } from '../types/Note';
+import { Note, User, NoteApiResponse } from '../types/Note';
 import { LoginRequest, RegisterRequest } from '../types/Auth';
 
 const API_URL = 'http://localhost:5000/api';
@@ -39,14 +39,30 @@ export const api = {
             },
             body: JSON.stringify(credentials),
         });
+
         if (!response.ok) {
             const error = await response.text();
             throw new Error(error || 'Login failed');
         }
-        const user = await response.json();
-        // Store the user data in localStorage
-        localStorage.setItem('user', JSON.stringify(user));
-        return user;
+
+        const userData = await response.json();
+        
+        // Format the user data to handle both casings
+        const formattedUser = {
+            id: userData.id || userData.Id,
+            username: userData.username || userData.Username,
+            email: userData.email || userData.Email,
+            createdAt: new Date(userData.createdAt || userData.CreatedAt),
+            // Keep the original properties for backward compatibility
+            Id: userData.Id || userData.id,
+            Username: userData.Username || userData.username,
+            Email: userData.Email || userData.email,
+            CreatedAt: userData.CreatedAt || userData.createdAt
+        };
+
+        // Store the formatted user data in localStorage
+        localStorage.setItem('user', JSON.stringify(formattedUser));
+        return formattedUser;
     },
 
     register: async (userData: RegisterRequest): Promise<User> => {
@@ -65,13 +81,13 @@ export const api = {
     },
 
     // Note operations
-    getNotes: async (): Promise<Note[]> => {
+    getNotes: async (): Promise<NoteApiResponse[]> => {
         const user = getCurrentUser();
         if (!user?.Id) {
             throw new Error('User not authenticated');
         }
 
-        console.log('Fetching notes with userId:', user.Id); // Debug log
+        console.log('Fetching notes for user:', user.Id);
 
         const response = await fetch(`${API_URL}/notes`, {
             headers: {
@@ -86,22 +102,9 @@ export const api = {
         }
 
         const notes = await response.json();
-        console.log('Raw API response:', notes); // Debug log
+        console.log('Raw API response:', notes);
 
-        const formattedNotes = notes.map((note: any) => ({
-            id: note.id,
-            title: note.title,
-            content: note.content,
-            category: note.category,
-            createdAt: new Date(note.createdAt),
-            updatedAt: new Date(note.updatedAt),
-            userId: note.userId,
-            isPublic: note.isPublic,
-            user: note.user
-        }));
-
-        console.log('Formatted notes:', formattedNotes); // Debug log
-        return formattedNotes;
+        return notes;
     },
 
     createNote: async (note: Partial<Note>): Promise<Note> => {
@@ -110,7 +113,7 @@ export const api = {
             throw new Error('User not authenticated');
         }
 
-        console.log('Creating note:', note);
+        console.log('Creating note with data:', { ...note, userId: user.Id });
 
         const response = await fetch(`${API_URL}/notes`, {
             method: 'POST',
@@ -128,29 +131,28 @@ export const api = {
 
         if (!response.ok) {
             const error = await response.json();
+            console.error('Create note error:', error);
             throw new Error(error.message || 'Failed to create note');
         }
 
         const createdNote = await response.json();
-        console.log('Created note response:', createdNote);
+        console.log('Server response:', createdNote);
 
-        // Convert the response to match our Note interface
-        return {
-            id: createdNote.Id,
-            title: createdNote.Title,
-            content: createdNote.Content,
-            category: createdNote.Category,
-            createdAt: new Date(createdNote.CreatedAt),
-            updatedAt: new Date(createdNote.UpdatedAt),
-            userId: createdNote.UserId,
-            isPublic: createdNote.IsPublic,
-            user: createdNote.User ? {
-                id: createdNote.User.Id,
-                username: createdNote.User.Username,
-                email: createdNote.User.Email,
-                createdAt: new Date(createdNote.User.CreatedAt)
-            } : undefined
+        // Convert from C# casing to TypeScript casing
+        const formattedNote: Note = {
+            id: createdNote.id || createdNote.Id,
+            title: createdNote.title || createdNote.Title,
+            content: createdNote.content || createdNote.Content,
+            category: createdNote.category || createdNote.Category,
+            createdAt: new Date(createdNote.createdAt || createdNote.CreatedAt),
+            updatedAt: new Date(createdNote.updatedAt || createdNote.UpdatedAt),
+            userId: createdNote.userId || createdNote.UserId,
+            isPublic: createdNote.isPublic || createdNote.IsPublic,
+            user: createdNote.user || createdNote.User
         };
+
+        console.log('Formatted note:', formattedNote);
+        return formattedNote;
     },
 
     updateNote: async (id: number, note: Partial<Note>): Promise<Note> => {
@@ -263,6 +265,88 @@ export const api = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Failed to make note public');
+        }
+    },
+
+    searchUsers: async (searchTerm: string): Promise<User[]> => {
+        const user = getCurrentUser();
+        if (!user?.Id) {
+            throw new Error('User not authenticated');
+        }
+
+        console.log('Starting user search with term:', searchTerm);
+        console.log('Current user:', user);
+
+        try {
+            // Use lowercase 'users' in the URL
+            const url = new URL(`${API_URL}/users/search`);
+            url.searchParams.append('term', searchTerm);
+            console.log('Request URL:', url.toString());
+
+            const headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'UserId': user.Id.toString()
+            };
+            console.log('Request headers:', headers);
+
+            // Test the controller first
+            const pingResponse = await fetch(`${API_URL}/users/ping`);
+            console.log('Ping response:', await pingResponse.text());
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers
+            });
+
+            console.log('Response status:', response.status);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            const responseText = await response.text();
+            console.log('Raw response text:', responseText);
+
+            if (!response.ok) {
+                console.error('Response not OK:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    body: responseText
+                });
+                throw new Error(responseText || `HTTP error! status: ${response.status}`);
+            }
+
+            if (!responseText.trim()) {
+                console.warn('Empty response received');
+                return [];
+            }
+
+            try {
+                const data = JSON.parse(responseText);
+                console.log('Parsed response data:', data);
+
+                if (!data.users) {
+                    console.error('Response missing users array:', data);
+                    return [];
+                }
+
+                const mappedUsers = data.users.map((user: any) => ({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    createdAt: new Date(user.createdAt)
+                }));
+                console.log('Mapped users:', mappedUsers);
+                return mappedUsers;
+
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                throw new Error('Invalid JSON response from server');
+            }
+        } catch (error) {
+            console.error('Search users error:', {
+                error,
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+            throw error instanceof Error ? error : new Error('Failed to search users');
         }
     },
 };

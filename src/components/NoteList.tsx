@@ -9,6 +9,7 @@ interface NoteListProps {
     onNoteSelect: (note: Note) => void;
     onDeleteNote: (id: number) => void;
     onMakePublic: (id: number) => void;
+    onShare: (id: number) => void;
 }
 
 const NoteList: React.FC<NoteListProps> = ({
@@ -17,7 +18,8 @@ const NoteList: React.FC<NoteListProps> = ({
     selectedNote,
     onNoteSelect,
     onDeleteNote,
-    onMakePublic
+    onMakePublic,
+    onShare
 }) => {
     return (
         <div className="note-lists-container">
@@ -37,6 +39,7 @@ const NoteList: React.FC<NoteListProps> = ({
                             </div>
                             <div className="note-actions">
                                 <button onClick={() => onDeleteNote(note.id)}>Delete</button>
+                                <button onClick={() => onShare(note.id)}>Share</button>
                                 {!note.isPublic && (
                                     <button onClick={() => onMakePublic(note.id)}>Make Public</button>
                                 )}

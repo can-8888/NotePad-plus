@@ -159,6 +159,7 @@ D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.Assemb
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.csproj.CoreCompileInputs.cache
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cs
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cache
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.sourcelink.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets.build.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets.development.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets\msbuild.NotepadPlusApi.Microsoft.AspNetCore.StaticWebAssets.props
@@ -173,4 +174,3 @@ D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\refint\NotepadPlusApi
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.pdb
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.genruntimeconfig.cache
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\ref\NotepadPlusApi.dll
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.sourcelink.json

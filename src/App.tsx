@@ -5,7 +5,7 @@ import NoteEditor from './components/NoteEditor';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import { useAuth } from './contexts/AuthContext';
-import { Note } from './types/Note';
+import { Note, NoteApiResponse } from './types/Note';
 import { api } from './services/api';
 import { ShareNoteDialog } from './components/ShareNoteDialog';
 
@@ -22,6 +22,7 @@ function App() {
     const [sortBy, setSortBy] = useState<SortOption>('date-desc');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(null);
 
     useEffect(() => {
         if (user) {
@@ -37,17 +38,29 @@ function App() {
             
             console.log('Loading notes for user:', user);
             
-            // Load both regular and shared notes
-            const [myNotes, shared] = await Promise.all([
+            const [myNotesResponse, shared] = await Promise.all([
                 api.getNotes(),
                 api.getSharedNotes()
-            ]);
+            ]) as [NoteApiResponse[], Note[]];
             
-            console.log('API Response - myNotes:', myNotes);
+            console.log('API Response - myNotes:', myNotesResponse);
             console.log('API Response - shared:', shared);
             
-            // Update both states
-            setNotes(Array.isArray(myNotes) ? myNotes : []);
+            // Convert API response to Note format
+            const formattedMyNotes: Note[] = myNotesResponse.map(note => ({
+                id: note.id ?? note.Id ?? 0,
+                title: note.title ?? note.Title ?? '',
+                content: note.content ?? note.Content ?? '',
+                category: note.category ?? note.Category ?? '',
+                createdAt: new Date(note.createdAt ?? note.CreatedAt ?? ''),
+                updatedAt: new Date(note.updatedAt ?? note.UpdatedAt ?? ''),
+                userId: note.userId ?? note.UserId ?? 0,
+                isPublic: note.isPublic ?? note.IsPublic ?? false,
+                user: note.user ?? note.User
+            }));
+
+            console.log('Setting notes state with:', formattedMyNotes);
+            setNotes(formattedMyNotes);
             setSharedNotes(Array.isArray(shared) ? shared : []);
 
         } catch (err) {
@@ -79,26 +92,43 @@ function App() {
                 throw new Error('User not authenticated');
             }
 
+            console.log('Saving note:', noteData);
+
+            let savedNote: Note;
             if (selectedNote) {
                 // Update existing note
-                await api.updateNote(selectedNote.id, {
+                savedNote = await api.updateNote(selectedNote.id, {
                     ...noteData,
                     userId: user.id
                 });
             } else {
                 // Create new note
-                await api.createNote({
+                savedNote = await api.createNote({
                     ...noteData,
                     userId: user.id
                 });
             }
 
-            // Reload all notes to get the latest state
-            await loadAllNotes();
+            console.log('Note saved successfully:', savedNote);
+
+            // Update the notes array immediately
+            setNotes(prevNotes => {
+                if (selectedNote) {
+                    // Update existing note
+                    return prevNotes.map(note => 
+                        note.id === savedNote.id ? savedNote : note
+                    );
+                } else {
+                    // Add new note
+                    return [...prevNotes, savedNote];
+                }
+            });
+
+            // Clear the selected note
             setSelectedNote(undefined);
         } catch (err) {
+            console.error('Save note error:', err);
             setError('Failed to save note');
-            console.error(err);
         }
     };
 
@@ -112,10 +142,25 @@ function App() {
             
             // Update the selected note if it was made public
             if (selectedNote?.id === noteId) {
-                const updatedNote = await api.getNotes().then(notes => 
-                    notes.find(n => n.id === noteId)
+                const apiNote = await api.getNotes().then(notes => 
+                    notes.find(n => n.id === noteId || n.Id === noteId)
                 );
-                setSelectedNote(updatedNote);
+
+                if (apiNote) {
+                    // Convert API response to Note format
+                    const updatedNote: Note = {
+                        id: apiNote.id ?? apiNote.Id ?? 0,
+                        title: apiNote.title ?? apiNote.Title ?? '',
+                        content: apiNote.content ?? apiNote.Content ?? '',
+                        category: apiNote.category ?? apiNote.Category ?? '',
+                        createdAt: new Date(apiNote.createdAt ?? apiNote.CreatedAt ?? ''),
+                        updatedAt: new Date(apiNote.updatedAt ?? apiNote.UpdatedAt ?? ''),
+                        userId: apiNote.userId ?? apiNote.UserId ?? 0,
+                        isPublic: apiNote.isPublic ?? apiNote.IsPublic ?? false,
+                        user: apiNote.user ?? apiNote.User
+                    };
+                    setSelectedNote(updatedNote);
+                }
             }
         } catch (err) {
             setError('Failed to make note public');
@@ -142,6 +187,13 @@ function App() {
 
     const filteredAndSortedNotes = sortNotes(
         notes.filter(note => {
+            // First filter by user
+            if (!user) return false;
+            const userId = user.id ?? user.Id ?? 0;
+            const noteUserId = note.userId;
+            if (userId !== noteUserId) return false;
+            
+            // Then filter by search and category
             if (!note?.title) return false;
             
             const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -205,6 +257,15 @@ function App() {
         logout();
     };
 
+    const handleShare = (noteId: number) => {
+        setShareDialogNoteId(noteId);
+    };
+
+    const handleShareComplete = async () => {
+        await loadAllNotes(); // Reload notes to update the UI
+        setShareDialogNoteId(null);
+    };
+
     if (!user) {
         return (
             <div className="App">
@@ -243,7 +304,7 @@ function App() {
             <header className="App-header">
                 <h1>Notepad+</h1>
                 <div className="user-info">
-                    <span>Welcome, {user.username}!</span>
+                    <span>Welcome, {user?.username || user?.Username}!</span>
                     <button className="logout-button" onClick={handleLogout}>
                         Logout
                     </button>
@@ -296,11 +357,20 @@ function App() {
                                 onNoteSelect={setSelectedNote}
                                 onDeleteNote={handleDeleteNote}
                                 onMakePublic={handleMakePublic}
+                                onShare={handleShare}
                             />
                         </div>
                     </>
                 )}
             </main>
+
+            {shareDialogNoteId && (
+                <ShareNoteDialog
+                    noteId={shareDialogNoteId}
+                    onClose={() => setShareDialogNoteId(null)}
+                    onShare={handleShareComplete}
+                />
+            )}
         </div>
     );
 }

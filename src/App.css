@@ -6,11 +6,16 @@
 
 .App-header {
     background-color: #282c34;
-    padding: 1rem;
+    padding: 0.5rem;
     color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.App-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
 }
 
 .App-main {
@@ -282,13 +287,15 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    font-size: 0.9rem;
 }
 
 .logout-button {
-    padding: 0.5rem 1rem;
+    padding: 0.3rem 0.8rem;
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 4px;
     cursor: pointer;
+    font-size: 0.9rem;
 }
