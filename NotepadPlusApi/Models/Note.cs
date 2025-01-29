@@ -11,7 +11,12 @@ public class Note
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public int UserId { get; set; }
+    public bool IsPublic { get; set; }
     
     [JsonIgnore]
     public virtual User? User { get; set; }
+    
+    // Add collaborators
+    [JsonIgnore]
+    public virtual ICollection<User> Collaborators { get; set; } = new List<User>();
 }

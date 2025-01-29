@@ -7,6 +7,7 @@ import Register from './components/auth/Register';
 import { useAuth } from './contexts/AuthContext';
 import { Note } from './types/Note';
 import { api } from './services/api';
+import { ShareNoteDialog } from './components/ShareNoteDialog';
 
 type SortOption = 'date-desc' | 'date-asc' | 'title' | 'category';
 
@@ -14,6 +15,7 @@ function App() {
     const { user, logout } = useAuth();
     const [showRegister, setShowRegister] = useState(false);
     const [notes, setNotes] = useState<Note[]>([]);
+    const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
     const [selectedNote, setSelectedNote] = useState<Note | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -23,19 +25,29 @@ function App() {
 
     useEffect(() => {
         if (user) {
-            loadNotes();
+            loadAllNotes();
         }
     }, [user]);
 
-    const loadNotes = async () => {
+    const loadAllNotes = async () => {
         try {
             setIsLoading(true);
             setError(null);
-            const loadedNotes = await api.getNotes();
-            setNotes(loadedNotes);
+            
+            console.log('Loading notes for user:', user); // Debug log
+            
+            const [myNotes, shared] = await Promise.all([
+                api.getNotes(),
+                api.getSharedNotes()
+            ]);
+            
+            console.log('Loaded notes:', { myNotes, shared }); // Debug log
+            
+            setNotes(myNotes);
+            setSharedNotes(shared);
         } catch (err) {
-            setError('Failed to load notes');
-            console.error(err);
+            console.error('Error loading notes:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load notes');
         } finally {
             setIsLoading(false);
         }
@@ -61,30 +73,44 @@ function App() {
             if (!user) {
                 throw new Error('User not authenticated');
             }
-    
+
+            let savedNote: Note;
             if (selectedNote) {
                 // Update existing note
-                const updatedNote = await api.updateNote(selectedNote.id, {
+                savedNote = await api.updateNote(selectedNote.id, {
                     ...noteData,
-                    userId: user.id,
-                    updatedAt: new Date()
+                    userId: user.id
                 });
-                setNotes(notes.map(note => 
-                    note.id === selectedNote.id ? updatedNote : note
-                ));
             } else {
                 // Create new note
-                const newNote = await api.createNote({
+                savedNote = await api.createNote({
                     ...noteData,
-                    userId: user.id,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+                    userId: user.id
                 });
-                setNotes([...notes, newNote]);
             }
+
+            // Update notes array
+            setNotes(prevNotes => {
+                const newNotes = selectedNote
+                    ? prevNotes.map(note => note.id === savedNote.id ? savedNote : note)
+                    : [...prevNotes, savedNote];
+                console.log('Updated notes array:', newNotes); // Debug log
+                return newNotes;
+            });
+
             setSelectedNote(undefined);
         } catch (err) {
             setError('Failed to save note');
+            console.error(err);
+        }
+    };
+
+    const handleMakePublic = async (noteId: number) => {
+        try {
+            await api.makeNotePublic(noteId);
+            await loadAllNotes(); // Reload notes to get updated status
+        } catch (err) {
+            setError('Failed to make note public');
             console.error(err);
         }
     };
@@ -108,12 +134,53 @@ function App() {
 
     const filteredAndSortedNotes = sortNotes(
         notes.filter(note => {
+            if (!note?.title) return false;
+            
             const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 note.content.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesCategory = !selectedCategory || note.category === selectedCategory;
             return matchesSearch && matchesCategory;
         })
     );
+
+    const renderSortOptions = () => {
+        const options = [
+            { value: 'date-desc', label: 'Newest First' },
+            { value: 'date-asc', label: 'Oldest First' },
+            { value: 'title', label: 'Title' },
+            { value: 'category', label: 'Category' }
+        ];
+
+        return options.map(option => (
+            <option key={option.value} value={option.value}>
+                {option.label}
+            </option>
+        ));
+    };
+
+    const renderCategoryOptions = () => {
+        const categories = Array.from(new Set(notes.map(note => note.category)))
+            .filter(category => category); // Filter out empty categories
+
+        return [
+            <option key="all" value="">Toate categoriile</option>,
+            ...categories.map(category => (
+                <option key={category} value={category}>
+                    {category}
+                </option>
+            ))
+        ];
+    };
+
+    // Add debug logging for filtered notes
+    useEffect(() => {
+        console.log('Current notes:', notes);
+        console.log('Filtered notes:', filteredAndSortedNotes);
+    }, [notes, filteredAndSortedNotes]);
+
+    useEffect(() => {
+        console.log('Notes state updated:', notes);
+    }, [notes]);
 
     if (!user) {
         return (
@@ -175,22 +242,14 @@ function App() {
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className="category-filter"
                 >
-                    <option value="">Toate categoriile</option>
-                    {Array.from(new Set(notes.map(note => note.category))).map(category => (
-                        <option key={category} value={category}>
-                            {category}
-                        </option>
-                    ))}
+                    {renderCategoryOptions()}
                 </select>
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as SortOption)}
                     className="sort-select"
                 >
-                    <option value="date-desc">Cele mai noi</option>
-                    <option value="date-asc">Cele mai vechi</option>
-                    <option value="title">După titlu</option>
-                    <option value="category">După categorie</option>
+                    {renderSortOptions()}
                 </select>
             </div>
 
@@ -201,13 +260,16 @@ function App() {
                     <>
                         <NoteList 
                             notes={filteredAndSortedNotes}
+                            sharedNotes={sharedNotes}
+                            selectedNote={selectedNote}
                             onNoteSelect={setSelectedNote}
                             onDeleteNote={handleDeleteNote}
-                            selectedNote={selectedNote}
+                            onMakePublic={handleMakePublic}
                         />
                         <NoteEditor 
                             note={selectedNote}
                             onSave={handleSaveNote}
+                            onCancel={() => setSelectedNote(undefined)}
                         />
                     </>
                 )}

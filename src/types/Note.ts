@@ -6,6 +6,9 @@ export interface Note {
     createdAt: Date;
     updatedAt: Date;
     userId: number;
+    isPublic: boolean;
+    user?: User;
+    collaborators?: User[];
 }
 
 export interface User {

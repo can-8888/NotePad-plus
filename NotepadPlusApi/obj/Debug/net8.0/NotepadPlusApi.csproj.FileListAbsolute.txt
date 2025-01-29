@@ -173,3 +173,4 @@ D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\refint\NotepadPlusApi
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.pdb
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.genruntimeconfig.cache
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\ref\NotepadPlusApi.dll
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.sourcelink.json

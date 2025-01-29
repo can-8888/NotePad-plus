@@ -30,5 +30,22 @@ public class ApplicationDbContext : DbContext
             .WithMany(u => u.Notes)
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<User>()
+            .HasMany(u => u.CollaborativeNotes)
+            .WithMany(n => n.Collaborators)
+            .UsingEntity(
+                "NoteCollaborators",
+                j => j
+                    .HasOne(typeof(Note))
+                    .WithMany()
+                    .HasForeignKey("NoteId")
+                    .OnDelete(DeleteBehavior.NoAction),
+                j => j
+                    .HasOne(typeof(User))
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.NoAction)
+            );
     }
 }
