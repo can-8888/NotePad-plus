@@ -166,4 +166,38 @@
     40% { content: '..'; }
     60% { content: '...'; }
     80%, 100% { content: ''; }
+}
+
+.editor-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.editor-toolbar button {
+    padding: 0.3rem 0.8rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.editor-toolbar button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.editor-toolbar button:not(:disabled):hover {
+    background-color: #e9ecef;
+}
+
+.selection-highlight {
+    position: absolute;
+    background-color: rgba(33, 150, 243, 0.2);
+    pointer-events: none;
 } 
