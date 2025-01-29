@@ -36,28 +36,31 @@ public class NotesController : ControllerBase
             var notes = await _context.Notes
                 .Include(n => n.User)
                 .Where(n => n.UserId == userId)
-                .Select(n => new
-                {
-                    id = n.Id,
-                    title = n.Title,
-                    content = n.Content,
-                    category = n.Category,
-                    createdAt = n.CreatedAt,
-                    updatedAt = n.UpdatedAt,
-                    userId = n.UserId,
-                    isPublic = n.IsPublic,
-                    user = n.User != null ? new
-                    {
-                        id = n.User.Id,
-                        username = n.User.Username,
-                        email = n.User.Email,
-                        createdAt = n.User.CreatedAt
-                    } : null
-                })
                 .ToListAsync();
 
             _logger.LogInformation($"Found {notes.Count} notes for user {userId}");
-            return Ok(notes);
+            
+            var response = notes.Select(n => new
+            {
+                id = n.Id,
+                title = n.Title,
+                content = n.Content,
+                category = n.Category,
+                createdAt = n.CreatedAt,
+                updatedAt = n.UpdatedAt,
+                userId = n.UserId,
+                isPublic = n.IsPublic,
+                user = n.User != null ? new
+                {
+                    id = n.User.Id,
+                    username = n.User.Username,
+                    email = n.User.Email,
+                    createdAt = n.User.CreatedAt
+                } : null
+            }).ToList();
+
+            _logger.LogInformation($"Returning {response.Count} formatted notes");
+            return Ok(response);
         }
         catch (Exception ex)
         {

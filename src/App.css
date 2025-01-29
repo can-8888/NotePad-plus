@@ -15,11 +15,21 @@
 
 .App-main {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    padding: 2rem;
-    max-width: 1200px;
+    grid-template-columns: 400px 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1400px;
     margin: 0 auto;
+}
+
+.left-panel {
+    position: sticky;
+    top: 20px;
+    height: fit-content;
+}
+
+.right-panel {
+    min-width: 0; /* Prevents grid blowout */
 }
 
 .note-list {
@@ -88,26 +98,36 @@
 }
 
 .search-filters {
+    margin-bottom: 20px;
     display: flex;
-    gap: 1rem;
-    padding: 1rem 2rem;
-    background-color: white;
-    margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    gap: 10px;
+    padding: 0 20px;
 }
 
-.search-input {
-    flex: 1;
-    padding: 0.5rem;
+.search-input,
+.category-filter,
+.sort-select {
+    padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
 }
 
-.category-filter,
-.sort-select {
-    min-width: 150px;
-    padding: 0.5rem;
-    border: 1px solid #ddd;
+.search-input {
+    flex: 1;
+}
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    grid-column: 1 / -1;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    margin: 10px 20px;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
     border-radius: 4px;
 }
 
@@ -237,14 +257,6 @@
 
 .auth-form button:hover {
     background-color: #373d48;
-}
-
-.error-message {
-    color: #ff4444;
-    background-color: #ffe5e5;
-    padding: 0.8rem;
-    border-radius: 4px;
-    text-align: center;
 }
 
 .auth-container p {

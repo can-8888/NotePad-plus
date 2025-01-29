@@ -18,7 +18,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     useEffect(() => {
-        // When user changes, update localStorage
         if (user) {
             localStorage.setItem('user', JSON.stringify(user));
         } else {
@@ -27,8 +26,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [user]);
 
     const login = async (username: string, password: string) => {
-        const userData = await api.login({ username, password });
-        setUser(userData);
+        try {
+            const userData = await api.login({ username, password });
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+        } catch (error) {
+            console.error('Login failed:', error);
+            throw error;
+        }
     };
 
     const register = async (username: string, email: string, password: string) => {

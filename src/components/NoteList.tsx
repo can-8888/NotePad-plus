@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Note } from '../types/Note';
-import { ShareNoteDialog } from './ShareNoteDialog';
 import './NoteList.css';
 
 interface NoteListProps {
     notes: Note[];
-    sharedNotes?: Note[];
+    sharedNotes: Note[];
     selectedNote?: Note;
     onNoteSelect: (note: Note) => void;
     onDeleteNote: (id: number) => void;
@@ -14,63 +13,65 @@ interface NoteListProps {
 
 const NoteList: React.FC<NoteListProps> = ({
     notes,
-    sharedNotes = [],
+    sharedNotes,
     selectedNote,
     onNoteSelect,
     onDeleteNote,
     onMakePublic
 }) => {
-    const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(null);
-
-    console.log('NoteList rendering with:', { notes, sharedNotes }); // Debug log
-
-    if (!notes.length && !sharedNotes.length) {
-        return <div className="no-notes">No notes found</div>;
-    }
-
     return (
-        <div className="note-list">
-            <h2>My Notes</h2>
-            <div className="notes-grid">
-                {notes.map((note) => (
-                    <div 
-                        key={note.id} 
-                        className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
-                    >
-                        <div className="note-content" onClick={() => onNoteSelect(note)}>
-                            <h3>{note.title}</h3>
-                            <p>{note.content.substring(0, 100)}...</p>
-                            <small>Category: {note.category}</small>
+        <div className="note-lists-container">
+            {/* My Notes Section */}
+            <section className="my-notes-section">
+                <h2>My Notes</h2>
+                <div className="notes-grid">
+                    {notes.map((note) => (
+                        <div 
+                            key={note.id} 
+                            className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
+                        >
+                            <div className="note-content" onClick={() => onNoteSelect(note)}>
+                                <h3>{note.title}</h3>
+                                <p>{note.content.substring(0, 100)}...</p>
+                                <small>Category: {note.category}</small>
+                            </div>
+                            <div className="note-actions">
+                                <button onClick={() => onDeleteNote(note.id)}>Delete</button>
+                                {!note.isPublic && (
+                                    <button onClick={() => onMakePublic(note.id)}>Make Public</button>
+                                )}
+                            </div>
                         </div>
-                        <div className="note-actions">
-                            <button onClick={() => onDeleteNote(note.id)}>Delete</button>
-                            {!note.isPublic && (
-                                <button onClick={() => onMakePublic(note.id)}>Make Public</button>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            </section>
 
-            {sharedNotes.length > 0 && (
-                <>
-                    <h2>Shared Notes</h2>
-                    <div className="notes-grid">
-                        {sharedNotes.map((note) => (
-                            <div key={note.id} className="note-card shared">
+            {/* Shared Notes Section */}
+            <section className="shared-notes-section">
+                <h2>Shared Notes</h2>
+                <div className="notes-grid">
+                    {sharedNotes.length > 0 ? (
+                        sharedNotes.map((note) => (
+                            <div 
+                                key={note.id} 
+                                className="note-card shared"
+                            >
                                 <div className="note-content" onClick={() => onNoteSelect(note)}>
                                     <h3>{note.title}</h3>
                                     <p>{note.content.substring(0, 100)}...</p>
-                                    <small>
-                                        Category: {note.category}<br/>
-                                        Shared by: {note.user?.username}
-                                    </small>
+                                    <div className="note-metadata">
+                                        <small>Category: {note.category}</small>
+                                        <small>Shared by: {note.user?.username}</small>
+                                        <small>{note.isPublic ? '(Public)' : '(Shared with you)'}</small>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </>
-            )}
+                        ))
+                    ) : (
+                        <p className="no-notes-message">No shared notes available</p>
+                    )}
+                </div>
+            </section>
         </div>
     );
 };

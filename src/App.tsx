@@ -25,26 +25,31 @@ function App() {
 
     useEffect(() => {
         if (user) {
+            console.log('User logged in, loading notes...'); // Debug log
             loadAllNotes();
         }
-    }, [user]);
+    }, [user]); // Only depend on user
 
     const loadAllNotes = async () => {
         try {
             setIsLoading(true);
             setError(null);
             
-            console.log('Loading notes for user:', user); // Debug log
+            console.log('Loading notes for user:', user);
             
+            // Load both regular and shared notes
             const [myNotes, shared] = await Promise.all([
                 api.getNotes(),
                 api.getSharedNotes()
             ]);
             
-            console.log('Loaded notes:', { myNotes, shared }); // Debug log
+            console.log('API Response - myNotes:', myNotes);
+            console.log('API Response - shared:', shared);
             
-            setNotes(myNotes);
-            setSharedNotes(shared);
+            // Update both states
+            setNotes(Array.isArray(myNotes) ? myNotes : []);
+            setSharedNotes(Array.isArray(shared) ? shared : []);
+
         } catch (err) {
             console.error('Error loading notes:', err);
             setError(err instanceof Error ? err.message : 'Failed to load notes');
@@ -74,30 +79,22 @@ function App() {
                 throw new Error('User not authenticated');
             }
 
-            let savedNote: Note;
             if (selectedNote) {
                 // Update existing note
-                savedNote = await api.updateNote(selectedNote.id, {
+                await api.updateNote(selectedNote.id, {
                     ...noteData,
                     userId: user.id
                 });
             } else {
                 // Create new note
-                savedNote = await api.createNote({
+                await api.createNote({
                     ...noteData,
                     userId: user.id
                 });
             }
 
-            // Update notes array
-            setNotes(prevNotes => {
-                const newNotes = selectedNote
-                    ? prevNotes.map(note => note.id === savedNote.id ? savedNote : note)
-                    : [...prevNotes, savedNote];
-                console.log('Updated notes array:', newNotes); // Debug log
-                return newNotes;
-            });
-
+            // Reload all notes to get the latest state
+            await loadAllNotes();
             setSelectedNote(undefined);
         } catch (err) {
             setError('Failed to save note');
@@ -107,8 +104,19 @@ function App() {
 
     const handleMakePublic = async (noteId: number) => {
         try {
+            setError(null);
             await api.makeNotePublic(noteId);
-            await loadAllNotes(); // Reload notes to get updated status
+            
+            // Reload both regular and shared notes
+            await loadAllNotes();
+            
+            // Update the selected note if it was made public
+            if (selectedNote?.id === noteId) {
+                const updatedNote = await api.getNotes().then(notes => 
+                    notes.find(n => n.id === noteId)
+                );
+                setSelectedNote(updatedNote);
+            }
         } catch (err) {
             setError('Failed to make note public');
             console.error(err);
@@ -160,10 +168,10 @@ function App() {
 
     const renderCategoryOptions = () => {
         const categories = Array.from(new Set(notes.map(note => note.category)))
-            .filter(category => category); // Filter out empty categories
+            .filter(category => category);
 
         return [
-            <option key="all" value="">Toate categoriile</option>,
+            <option key="all" value="">All Categories</option>,
             ...categories.map(category => (
                 <option key={category} value={category}>
                     {category}
@@ -182,6 +190,21 @@ function App() {
         console.log('Notes state updated:', notes);
     }, [notes]);
 
+    // Add useEffect to monitor sharedNotes changes
+    useEffect(() => {
+        console.log('Shared notes updated:', sharedNotes);
+    }, [sharedNotes]);
+
+    const handleLogout = () => {
+        // Clear UI state
+        setSelectedNote(undefined);
+        setSearchTerm('');
+        setSelectedCategory('');
+        setSortBy('date-desc');
+        // Don't clear notes here, they'll be reloaded on next login
+        logout();
+    };
+
     if (!user) {
         return (
             <div className="App">
@@ -193,9 +216,9 @@ function App() {
                         <>
                             <Register />
                             <p>
-                                Ai deja cont?{' '}
+                                Already have an account?{' '}
                                 <button onClick={() => setShowRegister(false)}>
-                                    Autentifică-te
+                                    Login
                                 </button>
                             </p>
                         </>
@@ -203,9 +226,9 @@ function App() {
                         <>
                             <Login />
                             <p>
-                                Nu ai cont?{' '}
+                                Don't have an account?{' '}
                                 <button onClick={() => setShowRegister(true)}>
-                                    Înregistrează-te
+                                    Register
                                 </button>
                             </p>
                         </>
@@ -220,9 +243,9 @@ function App() {
             <header className="App-header">
                 <h1>Notepad+</h1>
                 <div className="user-info">
-                    <span>Bine ai venit, {user.username}!</span>
-                    <button className="logout-button" onClick={logout}>
-                        Deconectare
+                    <span>Welcome, {user.username}!</span>
+                    <button className="logout-button" onClick={handleLogout}>
+                        Logout
                     </button>
                 </div>
             </header>
@@ -232,7 +255,7 @@ function App() {
             <div className="search-filters">
                 <input
                     type="text"
-                    placeholder="Caută notițe..."
+                    placeholder="Search notes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="search-input"
@@ -255,22 +278,26 @@ function App() {
 
             <main className="App-main">
                 {isLoading ? (
-                    <div className="loading">Se încarcă...</div>
+                    <div className="loading">Loading...</div>
                 ) : (
                     <>
-                        <NoteList 
-                            notes={filteredAndSortedNotes}
-                            sharedNotes={sharedNotes}
-                            selectedNote={selectedNote}
-                            onNoteSelect={setSelectedNote}
-                            onDeleteNote={handleDeleteNote}
-                            onMakePublic={handleMakePublic}
-                        />
-                        <NoteEditor 
-                            note={selectedNote}
-                            onSave={handleSaveNote}
-                            onCancel={() => setSelectedNote(undefined)}
-                        />
+                        <div className="left-panel">
+                            <NoteEditor 
+                                note={selectedNote}
+                                onSave={handleSaveNote}
+                                onCancel={() => setSelectedNote(undefined)}
+                            />
+                        </div>
+                        <div className="right-panel">
+                            <NoteList 
+                                notes={filteredAndSortedNotes}
+                                sharedNotes={sharedNotes}
+                                selectedNote={selectedNote}
+                                onNoteSelect={setSelectedNote}
+                                onDeleteNote={handleDeleteNote}
+                                onMakePublic={handleMakePublic}
+                            />
+                        </div>
                     </>
                 )}
             </main>
