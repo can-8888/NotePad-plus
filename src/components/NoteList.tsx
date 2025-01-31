@@ -1,31 +1,42 @@
 import React from 'react';
 import { Note } from '../types/Note';
+import { getCurrentUser } from '../services/api';
 import './NoteList.css';
 
 interface NoteListProps {
     notes: Note[];
-    sharedNotes: Note[];
     selectedNote?: Note;
     onNoteSelect: (note: Note) => void;
-    onDeleteNote: (id: number) => void;
-    onMakePublic: (id: number) => void;
-    onShare: (id: number) => void;
+    onDeleteNote: (noteId: number) => Promise<void>;
+    onMakePublic: (noteId: number) => Promise<void>;
+    onShare: (noteId: number) => void;
+    isLoading?: boolean;
+    error?: string | null;
 }
 
 const NoteList: React.FC<NoteListProps> = ({
     notes,
-    sharedNotes,
     selectedNote,
     onNoteSelect,
     onDeleteNote,
     onMakePublic,
-    onShare
+    onShare,
+    isLoading,
+    error
 }) => {
+    console.log('NoteList received notes:', notes);
+
+    if (isLoading) {
+        return <div className="loading-message">Loading notes...</div>;
+    }
+
+    if (error) {
+        return <div className="error-message">{error}</div>;
+    }
+
     return (
         <div className="note-lists-container">
-            {/* My Notes Section */}
-            <section className="my-notes-section">
-                <h2>My Notes</h2>
+            {notes.length > 0 ? (
                 <div className="notes-grid">
                     {notes.map((note) => (
                         <div 
@@ -33,48 +44,29 @@ const NoteList: React.FC<NoteListProps> = ({
                             className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
                         >
                             <div className="note-content" onClick={() => onNoteSelect(note)}>
-                                <h3>{note.title}</h3>
-                                <p>{note.content.substring(0, 100)}...</p>
-                                <small>Category: {note.category}</small>
+                                <h3>{note.title || 'Untitled'}</h3>
+                                <p>{note.content ? note.content.substring(0, 100) + '...' : 'No content'}</p>
+                                <div className="note-metadata">
+                                    <small>Category: {note.category || 'Uncategorized'}</small>
+                                    {note.user && <small>By: {note.user.username || note.user.Username}</small>}
+                                </div>
                             </div>
-                            <div className="note-actions">
-                                <button onClick={() => onDeleteNote(note.id)}>Delete</button>
-                                <button onClick={() => onShare(note.id)}>Share</button>
-                                {!note.isPublic && (
-                                    <button onClick={() => onMakePublic(note.id)}>Make Public</button>
-                                )}
-                            </div>
+                            {/* Only show actions for notes owned by the user */}
+                            {note.userId === getCurrentUser()?.Id && !note.isShared && (
+                                <div className="note-actions">
+                                    <button onClick={() => onDeleteNote(note.id)}>Delete</button>
+                                    <button onClick={() => onShare(note.id)}>Share</button>
+                                    {!note.isPublic && (
+                                        <button onClick={() => onMakePublic(note.id)}>Make Public</button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
-            </section>
-
-            {/* Shared Notes Section */}
-            <section className="shared-notes-section">
-                <h2>Shared Notes</h2>
-                <div className="notes-grid">
-                    {sharedNotes.length > 0 ? (
-                        sharedNotes.map((note) => (
-                            <div 
-                                key={note.id} 
-                                className="note-card shared"
-                            >
-                                <div className="note-content" onClick={() => onNoteSelect(note)}>
-                                    <h3>{note.title}</h3>
-                                    <p>{note.content.substring(0, 100)}...</p>
-                                    <div className="note-metadata">
-                                        <small>Category: {note.category}</small>
-                                        <small>Shared by: {note.user?.username}</small>
-                                        <small>{note.isPublic ? '(Public)' : '(Shared with you)'}</small>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="no-notes-message">No shared notes available</p>
-                    )}
-                </div>
-            </section>
+            ) : (
+                <p className="no-notes-message">No notes available</p>
+            )}
         </div>
     );
 };

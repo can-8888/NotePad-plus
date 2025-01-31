@@ -12,11 +12,13 @@ public class NotesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<NotesController> _logger;
+    private readonly INoteService _noteService;
 
-    public NotesController(ApplicationDbContext context, ILogger<NotesController> logger)
+    public NotesController(ApplicationDbContext context, ILogger<NotesController> logger, INoteService noteService)
     {
         _context = context;
         _logger = logger;
+        _noteService = noteService;
     }
 
     [HttpGet]
@@ -87,7 +89,8 @@ public class NotesController : ControllerBase
             note.CreatedAt = DateTime.UtcNow;
             note.UpdatedAt = DateTime.UtcNow;
             note.UserId = userId;
-            note.IsPublic = false; // Default to private
+            note.Status = NoteStatus.Personal; // Default to Personal
+            note.IsPublic = note.Status == NoteStatus.Public; // Set IsPublic based on status
 
             _logger.LogInformation($"Adding note: {note.Title}");
             _context.Notes.Add(note);
@@ -267,6 +270,42 @@ public class NotesController : ControllerBase
         {
             _logger.LogError($"Error making note public: {ex}");
             return StatusCode(500, new { message = "Internal server error while making note public" });
+        }
+    }
+
+    [HttpGet("public")]
+    public async Task<ActionResult<IEnumerable<Note>>> GetPublicNotes()
+    {
+        try
+        {
+            var publicNotes = await _noteService.GetPublicNotesAsync();
+            return Ok(publicNotes);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("{id}/status")]
+    public async Task<ActionResult<Note>> UpdateNoteStatus(int id, [FromBody] NoteStatus status)
+    {
+        try
+        {
+            var note = await _context.Notes.FindAsync(id);
+            if (note == null)
+                return NotFound();
+
+            note.Status = status;
+            note.IsPublic = status == NoteStatus.Public;
+            note.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(note);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
         }
     }
 }

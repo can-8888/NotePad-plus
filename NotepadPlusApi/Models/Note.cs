@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using System;
+using System.Collections.Generic;
 
 namespace NotepadPlusApi.Models;
 
@@ -12,6 +14,7 @@ public class Note
     public DateTime UpdatedAt { get; set; }
     public int UserId { get; set; }
     public bool IsPublic { get; set; }
+    public NoteStatus Status { get; set; } = NoteStatus.Personal;
     
     [JsonIgnore]
     public virtual User? User { get; set; }
@@ -19,4 +22,6 @@ public class Note
     // Add collaborators
     [JsonIgnore]
     public virtual ICollection<User> Collaborators { get; set; } = new List<User>();
+
+    public ICollection<NoteShare> SharedWith { get; set; }
 }

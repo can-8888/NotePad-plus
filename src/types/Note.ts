@@ -1,3 +1,9 @@
+export enum NoteStatus {
+    Personal = 'Personal',
+    Shared = 'Shared',
+    Public = 'Public'
+}
+
 export interface Note {
     id: number;
     title: string;
@@ -7,6 +13,8 @@ export interface Note {
     updatedAt: Date;
     userId: number;
     isPublic: boolean;
+    status: NoteStatus;
+    isShared?: boolean;
     user?: User;
     collaborators?: User[];
 }
@@ -40,6 +48,8 @@ export interface NoteApiResponse {
     UserId?: number;
     isPublic?: boolean;
     IsPublic?: boolean;
+    status?: NoteStatus;
+    Status?: NoteStatus;
     user?: User;
     User?: User;
 }

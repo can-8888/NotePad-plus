@@ -1,3 +1,11 @@
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.csproj.AssemblyReference.cache
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.GeneratedMSBuildEditorConfig.editorconfig
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.AssemblyInfoInputs.cache
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.AssemblyInfo.cs
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.csproj.CoreCompileInputs.cache
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cs
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cache
+D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.sourcelink.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\appsettings.Development.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\appsettings.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\NotepadPlusApi.exe
@@ -152,14 +160,6 @@ D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\runtimes\win\lib\net6
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Security.Cryptography.ProtectedData.dll
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
 D:\_master\v5\notepad-plus\NotepadPlusApi\bin\Debug\net8.0\runtimes\win\lib\net6.0\System.Windows.Extensions.dll
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.csproj.AssemblyReference.cache
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.GeneratedMSBuildEditorConfig.editorconfig
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.AssemblyInfoInputs.cache
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.AssemblyInfo.cs
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.csproj.CoreCompileInputs.cache
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cs
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.MvcApplicationPartsAssemblyInfo.cache
-D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\NotepadPlusApi.sourcelink.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets.build.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets.development.json
 D:\_master\v5\notepad-plus\NotepadPlusApi\obj\Debug\net8.0\staticwebassets\msbuild.NotepadPlusApi.Microsoft.AspNetCore.StaticWebAssets.props

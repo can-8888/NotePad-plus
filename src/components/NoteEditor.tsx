@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Note } from '../types/Note';
-import { signalRService } from '../services/signalR';
 import './NoteEditor.css';  // Make sure this is the exact path
 
 interface NoteEditorProps {
@@ -9,230 +8,55 @@ interface NoteEditorProps {
     onCancel: () => void;
 }
 
-interface Selection {
-    start: number;
-    end: number;
-}
-
-interface CollaboratorState {
-    username: string;
-    isTyping: boolean;
-    cursorPosition?: number;
-    selection?: Selection;
-    color: string;
-}
-
 interface HistoryEntry {
     content: string;
     cursorPosition: number;
 }
 
 const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
-    const [title, setTitle] = React.useState('');
-    const [content, setContent] = React.useState('');
-    const [category, setCategory] = React.useState('');
-    const [isSaving, setIsSaving] = React.useState(false);
-    const [collaborators, setCollaborators] = React.useState<CollaboratorState[]>([]);
+    console.log('NoteEditor rendered with note:', note);
+
+    const [title, setTitle] = useState(note?.title || '');
+    const [content, setContent] = useState(note?.content || '');
+    const [category, setCategory] = useState(note?.category || '');
+    const [isSaving, setIsSaving] = useState(false);
     const contentRef = useRef<HTMLTextAreaElement>(null);
-    const lastUpdateRef = useRef<number>(0);
-    const updateTimeoutRef = useRef<NodeJS.Timeout>();
-    const typingTimeoutRef = useRef<NodeJS.Timeout>();
     const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
     const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
-    const lastSavedRef = useRef<string>('');
-    const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
     useEffect(() => {
         if (note) {
-            // Editing existing note
             setTitle(note.title);
             setContent(note.content);
             setCategory(note.category);
-            
-            // Join the note's SignalR group
-            signalRService.joinNote(note.id);
-
-            // Listen for updates from other users
-            signalRService.onNoteUpdated((noteId, updatedContent) => {
-                if (noteId === note.id) {
-                    setContent(updatedContent);
-                }
-            });
-
-            // Enhanced collaborator tracking
-            signalRService.onCollaboratorJoined((username) => {
-                setCollaborators(prev => [...prev, { username, isTyping: false }]);
-            });
-
-            signalRService.onCollaboratorLeft((username) => {
-                setCollaborators(prev => prev.filter(c => c.username !== username));
-            });
-
-            // Typing indicators
-            signalRService.onUserStartedTyping((username) => {
-                setCollaborators(prev => 
-                    prev.map(c => c.username === username ? { ...c, isTyping: true } : c)
-                );
-            });
-
-            signalRService.onUserStoppedTyping((username) => {
-                setCollaborators(prev => 
-                    prev.map(c => c.username === username ? { ...c, isTyping: false } : c)
-                );
-            });
-
-            // Cursor tracking
-            signalRService.onCursorMoved((username, position) => {
-                setCollaborators(prev => 
-                    prev.map(c => c.username === username ? { ...c, cursorPosition: position } : c)
-                );
-                showCollaboratorCursor(username, position);
-            });
         } else {
-            // Creating new note
             setTitle('');
             setContent('');
             setCategory('');
         }
 
         return () => {
-            if (note) {
-                signalRService.leaveNote(note.id);
-                signalRService.removeAllHandlers(); // Clean up event handlers
-            }
-            if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-            }
+            console.log('NoteEditor unmounting');
         };
     }, [note?.id]);
-
-    const showCollaboratorCursor = (username: string, position: number) => {
-        if (!contentRef.current) return;
-
-        const existingCursor = document.querySelector(`.collaborator-cursor-${username}`);
-        existingCursor?.remove();
-
-        const cursor = document.createElement('div');
-        cursor.className = `collaborator-cursor collaborator-cursor-${username}`;
-        cursor.setAttribute('data-username', username);
-        cursor.style.color = getColorForUsername(username);
-
-        const { top, left } = calculateCursorPosition(position);
-        cursor.style.top = `${top}px`;
-        cursor.style.left = `${left}px`;
-
-        contentRef.current.parentElement?.appendChild(cursor);
-        setTimeout(() => cursor.remove(), 2000);
-    };
-
-    const calculateCursorPosition = (position: number) => {
-        if (!contentRef.current) return { top: 0, left: 0 };
-
-        const textArea = contentRef.current;
-        const textBeforeCursor = content.substring(0, position);
-        const lines = textBeforeCursor.split('\n');
-        const lineHeight = 20; // Approximate line height
-        const charWidth = 8; // Approximate character width
-
-        return {
-            top: (lines.length - 1) * lineHeight,
-            left: lines[lines.length - 1].length * charWidth
-        };
-    };
-
-    const getColorForUsername = (username: string) => {
-        const colors = ['#2196f3', '#4caf50', '#f44336', '#ff9800', '#9c27b0'];
-        let hash = 0;
-        for (let i = 0; i < username.length; i++) {
-            hash = username.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        return colors[Math.abs(hash) % colors.length];
-    };
 
     const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const newContent = e.target.value;
         setContent(newContent);
-
-        // Notify typing started
-        if (note) {
-            signalRService.notifyTypingStarted(note.id);
-            
-            // Clear existing timeout
-            if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-            }
-
-            // Set new timeout to notify typing stopped
-            typingTimeoutRef.current = setTimeout(() => {
-                if (note) {
-                    signalRService.notifyTypingStopped(note.id);
-                }
-            }, 1000);
-
-            // Throttle content updates
-            const now = Date.now();
-            if (now - lastUpdateRef.current > 500) {
-                signalRService.updateNote(note.id, newContent);
-                lastUpdateRef.current = now;
-            } else {
-                if (updateTimeoutRef.current) {
-                    clearTimeout(updateTimeoutRef.current);
-                }
-                updateTimeoutRef.current = setTimeout(() => {
-                    signalRService.updateNote(note.id, newContent);
-                    lastUpdateRef.current = Date.now();
-                }, 500);
-            }
-        }
-    };
-
-    const updateCursorPosition = () => {
-        if (!note || !contentRef.current) return;
-        const textarea = contentRef.current;
-        const cursorPosition = textarea.selectionStart;
-        signalRService.updateCursorPosition(note.id, cursorPosition);
-    };
-
-    const handleMouseMove = (e: React.MouseEvent<HTMLTextAreaElement>) => {
-        updateCursorPosition();
-    };
-
-    const handleKeyUp = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        updateCursorPosition();
+        addToHistory(newContent);
     };
 
     const handleSave = async () => {
         try {
             setIsSaving(true);
             await onSave({
-                ...(note || {}), // Spread existing note if editing, empty object if creating
+                ...(note || {}),
                 title,
                 content,
                 category
             });
-            if (!note) {
-                // Clear form after creating new note
-                setTitle('');
-                setContent('');
-                setCategory('');
-            }
         } finally {
             setIsSaving(false);
-        }
-    };
-
-    // Add selection tracking
-    const handleSelectionChange = () => {
-        if (!note || !contentRef.current) return;
-        
-        const textarea = contentRef.current;
-        const selection = {
-            start: textarea.selectionStart,
-            end: textarea.selectionEnd
-        };
-
-        if (selection.start !== selection.end) {
-            signalRService.updateSelection(note.id, selection);
         }
     };
 
@@ -242,7 +66,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
 
         setUndoStack(prev => [...prev, {
             content,
-            cursorPosition: contentRef.current.selectionStart
+            cursorPosition: contentRef.current?.selectionStart ?? 0
         }]);
         setRedoStack([]);
     };
@@ -264,10 +88,6 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
             contentRef.current.selectionStart = previous.cursorPosition;
             contentRef.current.selectionEnd = previous.cursorPosition;
         }
-
-        if (note) {
-            signalRService.updateNote(note.id, previous.content);
-        }
     };
 
     const redo = () => {
@@ -287,31 +107,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
             contentRef.current.selectionStart = next.cursorPosition;
             contentRef.current.selectionEnd = next.cursorPosition;
         }
-
-        if (note) {
-            signalRService.updateNote(note.id, next.content);
-        }
     };
-
-    // Add auto-save functionality
-    useEffect(() => {
-        if (note && content !== lastSavedRef.current) {
-            if (autoSaveTimeoutRef.current) {
-                clearTimeout(autoSaveTimeoutRef.current);
-            }
-
-            autoSaveTimeoutRef.current = setTimeout(() => {
-                handleSave();
-                lastSavedRef.current = content;
-            }, 3000); // Auto-save after 3 seconds of no changes
-        }
-
-        return () => {
-            if (autoSaveTimeoutRef.current) {
-                clearTimeout(autoSaveTimeoutRef.current);
-            }
-        };
-    }, [content, note]);
 
     // Add keyboard shortcuts
     useEffect(() => {
@@ -330,24 +126,21 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
 
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log('Form submitted');
+        await onSave({
+            id: note?.id,
+            title,
+            content,
+            category,
+            userId: note?.userId
+        });
+    };
+
     return (
-        <div className="note-editor">
+        <form onSubmit={handleSubmit} className="note-editor">
             <h2>{note ? 'Edit Note' : 'Create Note'}</h2>
-            {collaborators.length > 0 && (
-                <div className="collaborators">
-                    <span>Currently editing: </span>
-                    {collaborators.map(collaborator => (
-                        <span 
-                            key={collaborator.username} 
-                            className={`collaborator-badge ${collaborator.isTyping ? 'typing' : ''}`}
-                            style={{ backgroundColor: getColorForUsername(collaborator.username) }}
-                        >
-                            {collaborator.username}
-                            {collaborator.isTyping && <span className="typing-indicator" />}
-                        </span>
-                    ))}
-                </div>
-            )}
             <input
                 type="text"
                 placeholder="Title"
@@ -361,32 +154,30 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
                 onChange={(e) => setCategory(e.target.value)}
             />
             <div className="editor-toolbar">
-                <button onClick={undo} disabled={undoStack.length === 0}>
+                <button type="button" onClick={undo} disabled={undoStack.length === 0}>
                     Undo
                 </button>
-                <button onClick={redo} disabled={redoStack.length === 0}>
+                <button type="button" onClick={redo} disabled={redoStack.length === 0}>
                     Redo
                 </button>
             </div>
+            
             <textarea
                 ref={contentRef}
                 placeholder="Note content..."
                 value={content}
                 onChange={handleContentChange}
-                onClick={handleMouseMove}
-                onKeyUp={handleKeyUp}
-                onSelect={handleSelectionChange}
             />
             <div className="button-group">
                 <button 
-                    onClick={handleSave}
+                    type="submit"
                     disabled={isSaving}
                 >
                     {isSaving ? 'Saving...' : (note ? 'Save' : 'Create')}
                 </button>
-                <button onClick={onCancel}>Cancel</button>
+                <button type="button" onClick={onCancel}>Cancel</button>
             </div>
-        </div>
+        </form>
     );
 };
 
