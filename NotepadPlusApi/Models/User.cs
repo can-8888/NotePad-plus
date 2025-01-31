@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace NotepadPlusApi.Models;
@@ -12,7 +14,4 @@ public class User
 
     [JsonIgnore]
     public virtual ICollection<Note> Notes { get; set; } = new List<Note>();
-    
-    [JsonIgnore]
-    public virtual ICollection<Note> CollaborativeNotes { get; set; } = new List<Note>();
 }

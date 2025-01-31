@@ -1,33 +1,58 @@
 using Microsoft.EntityFrameworkCore;
 using NotepadPlusApi.Data;
 using NotepadPlusApi.Services;
+using NotepadPlusApi.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
+// Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Register NoteService
+// Register services
 builder.Services.AddScoped<INoteService, NoteService>();
 
-// Add CORS
+// Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader());
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
 });
 
 var app = builder.Build();
 
-// Configure middleware order is important
-app.UseRouting();
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
+// CORS must be before routing
 app.UseCors("AllowAll");
 
-// Map controllers
+// Add routing
+app.UseRouting();
+
+app.UseAuthorization();
+
 app.MapControllers();
+
+// Add request logging
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
+    Console.WriteLine($"Headers: {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}: {h.Value}"))}");
+    await next();
+    Console.WriteLine($"Response Status: {context.Response.StatusCode}");
+});
 
 app.Run();

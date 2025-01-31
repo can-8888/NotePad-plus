@@ -14,14 +14,15 @@ public class Note
     public DateTime UpdatedAt { get; set; }
     public int UserId { get; set; }
     public bool IsPublic { get; set; }
-    public NoteStatus Status { get; set; } = NoteStatus.Personal;
+    
+    public NoteStatus Status { get; set; }
     
     [JsonIgnore]
     public virtual User? User { get; set; }
     
-    // Add collaborators
     [JsonIgnore]
     public virtual ICollection<User> Collaborators { get; set; } = new List<User>();
 
-    public ICollection<NoteShare> SharedWith { get; set; }
+    [JsonIgnore]
+    public virtual ICollection<NoteShare> SharedWith { get; set; } = new List<NoteShare>();
 }

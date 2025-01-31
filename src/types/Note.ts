@@ -1,7 +1,7 @@
 export enum NoteStatus {
-    Personal = 'Personal',
-    Shared = 'Shared',
-    Public = 'Public'
+    Personal = 0,
+    Shared = 1,
+    Public = 2
 }
 
 export interface Note {
@@ -9,12 +9,12 @@ export interface Note {
     title: string;
     content: string;
     category: string;
+    userId: number;
+    owner?: string;
+    status: NoteStatus;
+    isPublic: boolean;
     createdAt: Date;
     updatedAt: Date;
-    userId: number;
-    isPublic: boolean;
-    status: NoteStatus;
-    isShared?: boolean;
     user?: User;
     collaborators?: User[];
 }
@@ -24,32 +24,46 @@ export interface User {
     username: string;
     email: string;
     createdAt: Date;
-    // Add uppercase variants for C# compatibility
-    Id?: number;
-    Username?: string;
-    Email?: string;
-    CreatedAt?: Date;
 }
 
 export interface NoteApiResponse {
-    id?: number;
-    Id?: number;
-    title?: string;
-    Title?: string;
-    content?: string;
-    Content?: string;
-    category?: string;
-    Category?: string;
-    createdAt?: string;
-    CreatedAt?: string;
-    updatedAt?: string;
-    UpdatedAt?: string;
-    userId?: number;
-    UserId?: number;
-    isPublic?: boolean;
-    IsPublic?: boolean;
-    status?: NoteStatus;
-    Status?: NoteStatus;
+    id: number;
+    title: string;
+    content: string;
+    category: string;
+    createdAt: string;  // API returns dates as strings
+    updatedAt: string;
+    userId: number;
+    isPublic: boolean;
+    status: NoteStatus;
     user?: User;
-    User?: User;
 }
+
+// Helper function to convert API response to Note
+export const convertApiResponseToNote = (apiNote: NoteApiResponse): Note => ({
+    ...apiNote,
+    createdAt: new Date(apiNote.createdAt),
+    updatedAt: new Date(apiNote.updatedAt),
+    status: apiNote.status as NoteStatus  // Ensure proper enum conversion
+});
+
+// Helper function to ensure proper status conversion
+export const getNoteStatus = (status: string | number | NoteStatus): NoteStatus => {
+    if (typeof status === 'number') {
+        return status as NoteStatus;
+    }
+    
+    switch (status.toString().toLowerCase()) {
+        case 'personal':
+        case '0':
+            return NoteStatus.Personal;
+        case 'shared':
+        case '1':
+            return NoteStatus.Shared;
+        case 'public':
+        case '2':
+            return NoteStatus.Public;
+        default:
+            return NoteStatus.Personal;
+    }
+};

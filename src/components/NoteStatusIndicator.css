@@ -1,0 +1,54 @@
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.status-indicator.personal {
+    background-color: #e3e3e3;
+    color: #666;
+}
+
+.status-indicator.shared {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    cursor: pointer;
+}
+
+.status-indicator.public {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+}
+
+/* Shared users modal styling */
+.shared-users-list {
+    padding: 16px;
+}
+
+.shared-users-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.shared-users-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.shared-users-list li:last-child {
+    border-bottom: none;
+}
+
+.shared-users-list .username {
+    font-weight: 500;
+    margin-right: 8px;
+}
+
+.shared-users-list .email {
+    color: #666;
+} 

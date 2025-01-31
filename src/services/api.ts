@@ -1,7 +1,10 @@
-import { Note, User, NoteApiResponse, NoteStatus } from '../types/Note';
+import { Note, User, NoteApiResponse, NoteStatus, convertApiResponseToNote, getNoteStatus } from '../types/Note';
 import { LoginRequest, RegisterRequest } from '../types/Auth';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+// Add logging to verify the URL
+console.log('API_URL:', API_URL);
 
 // Update the user type to match C# casing
 interface CurrentUser {
@@ -10,17 +13,22 @@ interface CurrentUser {
 }
 
 // Export getCurrentUser function
-export const getCurrentUser = (): CurrentUser | null => {
+export const getCurrentUser = (): User | null => {
     try {
         const userJson = localStorage.getItem('user');
         if (!userJson) return null;
 
-        const user = JSON.parse(userJson);
-        if (!user?.Id || typeof user.Id !== 'number') return null;
+        const rawUser = JSON.parse(userJson);
+        if (!rawUser) return null;
 
-        return user;
-    } catch (err) {
-        console.error('Error parsing user:', err);
+        // Convert PascalCase to camelCase
+        return {
+            id: rawUser.Id || rawUser.id,
+            username: rawUser.Username || rawUser.username,
+            email: rawUser.Email || rawUser.email,
+            createdAt: new Date(rawUser.CreatedAt || rawUser.createdAt)
+        };
+    } catch {
         return null;
     }
 };
@@ -51,20 +59,14 @@ export const api = {
 
         const userData = await response.json();
         
-        // Format the user data to handle both casings
+        // Format the user data to camelCase
         const formattedUser = {
-            id: userData.id || userData.Id,
-            username: userData.username || userData.Username,
-            email: userData.email || userData.Email,
-            createdAt: new Date(userData.createdAt || userData.CreatedAt),
-            // Keep the original properties for backward compatibility
-            Id: userData.Id || userData.id,
-            Username: userData.Username || userData.username,
-            Email: userData.Email || userData.email,
-            CreatedAt: userData.CreatedAt || userData.createdAt
+            id: userData.Id || userData.id,
+            username: userData.Username || userData.username,
+            email: userData.Email || userData.email,
+            createdAt: new Date(userData.CreatedAt || userData.createdAt)
         };
 
-        // Store the formatted user data in localStorage
         localStorage.setItem('user', JSON.stringify(formattedUser));
         return formattedUser;
     },
@@ -85,79 +87,84 @@ export const api = {
     },
 
     // Note operations
-    getNotes: async (): Promise<NoteApiResponse[]> => {
+    getNotes: async (): Promise<Note[]> => {
         const user = getCurrentUser();
-        if (!user?.Id) {
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
-        console.log('Fetching notes for user:', user.Id);
+        try {
+            const response = await fetch(`${API_URL}/notes`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                }
+            });
 
-        const response = await fetch(`${API_URL}/notes`, {
-            headers: {
-                'Content-Type': 'application/json',
-                'UserId': user.Id.toString()
+            if (!response.ok) {
+                throw new Error('Failed to fetch notes');
             }
-        });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to fetch notes');
+            const notes = await response.json();
+            return notes.map((note: any) => ({
+                ...note,
+                createdAt: new Date(note.createdAt),
+                updatedAt: new Date(note.updatedAt),
+                status: getNoteStatus(note.status)
+            }));
+        } catch (error) {
+            console.error('Error fetching notes:', error);
+            throw error;
         }
-
-        const notes = await response.json();
-        console.log('Raw API response:', notes);
-
-        return notes;
     },
 
     createNote: async (note: Partial<Note>): Promise<Note> => {
         const user = getCurrentUser();
-        if (!user?.Id) {
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
-        console.log('Creating note with data:', { ...note, userId: user.Id });
-
-        const response = await fetch(`${API_URL}/notes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'UserId': user.Id.toString()
-            },
-            body: JSON.stringify({
+        try {
+            const noteData = {
                 title: note.title || '',
                 content: note.content || '',
                 category: note.category || '',
-                userId: user.Id
-            }),
-        });
+                userId: user.id,
+                status: NoteStatus.Personal,
+                isPublic: false
+            };
 
-        if (!response.ok) {
-            const error = await response.json();
+            console.log('Creating note with data:', noteData);
+
+            const response = await fetch(`${API_URL}/notes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                },
+                body: JSON.stringify(noteData)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Create note error response:', errorText);
+                throw new Error(errorText || 'Failed to create note');
+            }
+
+            const createdNote = await response.json();
+            return {
+                ...createdNote,
+                createdAt: new Date(createdNote.createdAt),
+                updatedAt: new Date(createdNote.updatedAt),
+                status: getNoteStatus(createdNote.status)
+            };
+        } catch (error) {
             console.error('Create note error:', error);
-            throw new Error(error.message || 'Failed to create note');
+            throw error;
         }
-
-        const createdNote = await response.json();
-        console.log('Server response:', createdNote);
-
-        // Convert from C# casing to TypeScript casing
-        const formattedNote: Note = {
-            id: createdNote.id || createdNote.Id || 0,
-            title: createdNote.title || createdNote.Title || '',
-            content: createdNote.content || createdNote.Content || '',
-            category: createdNote.category || createdNote.Category || '',
-            createdAt: new Date(createdNote.createdAt || createdNote.CreatedAt || Date.now()),
-            updatedAt: new Date(createdNote.updatedAt || createdNote.UpdatedAt || Date.now()),
-            userId: createdNote.userId || createdNote.UserId || 0,
-            isPublic: createdNote.isPublic || createdNote.IsPublic || false,
-            status: createdNote.status || createdNote.Status || NoteStatus.Personal,
-            user: createdNote.user || createdNote.User
-        };
-
-        console.log('Formatted note:', formattedNote);
-        return formattedNote;
     },
 
     updateNote: async (id: number, note: Partial<Note>): Promise<Note> => {
@@ -194,49 +201,84 @@ export const api = {
     },
 
     deleteNote: async (id: number): Promise<void> => {
-        const response = await fetch(`${API_URL}/notes/${id}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error || 'Failed to delete note');
-        }
-    },
-
-    shareNote: async (noteId: number, collaboratorId: number): Promise<void> => {
         const user = getCurrentUser();
-        if (!user?.Id) {  // Changed from id to Id
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
-        const response = await fetch(`${API_URL}/notes/share`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'UserId': user.Id.toString()  // Changed from id to Id
-            },
-            body: JSON.stringify({
-                noteId,
-                collaboratorId
-            }),
-        });
+        try {
+            const response = await fetch(`${API_URL}/notes/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                }
+            });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to share note');
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Delete note error:', errorText);
+                throw new Error(errorText || `Failed to delete note (${response.status})`);
+            }
+        } catch (error) {
+            console.error('Delete note error:', error);
+            throw error;
+        }
+    },
+
+    shareNote: async (noteId: number, collaboratorId: number): Promise<Note> => {
+        const user = getCurrentUser();
+        if (!user?.id) {
+            throw new Error('User not authenticated');
+        }
+
+        try {
+            console.log(`Sharing note ${noteId} with user ${collaboratorId}`);
+            const response = await fetch(`${API_URL}/notes/${noteId}/share`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                },
+                body: JSON.stringify({
+                    collaboratorId: collaboratorId
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Share note error:', errorText);
+                throw new Error(errorText || `Failed to share note (${response.status})`);
+            }
+
+            const result = await response.json();
+            
+            // Update the local note with the new status and collaborators
+            return {
+                ...result.note,
+                createdAt: new Date(result.note.createdAt),
+                updatedAt: new Date(result.note.updatedAt),
+                status: getNoteStatus(result.note.status),
+                isShared: true
+            };
+        } catch (error) {
+            console.error('Share note error:', error);
+            throw error;
         }
     },
 
     getSharedNotes: async (): Promise<Note[]> => {
         const user = getCurrentUser();
-        if (!user?.Id) {  // Changed from id to Id
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
         const response = await fetch(`${API_URL}/notes/shared`, {
             headers: {
                 'Content-Type': 'application/json',
-                'UserId': user.Id.toString()  // Changed from id to Id
+                'UserId': user.id.toString()
             }
         });
         
@@ -253,29 +295,61 @@ export const api = {
         }));
     },
 
-    makeNotePublic: async (id: number): Promise<void> => {
+    makeNotePublic: async (noteId: number): Promise<Note> => {
         const user = getCurrentUser();
-        if (!user?.Id) {  // Changed from id to Id
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
-        const response = await fetch(`${API_URL}/notes/${id}/make-public`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'UserId': user.Id.toString()  // Changed from id to Id
-            },
-        });
+        console.log('makeNotePublic called with:', { noteId, userId: user.id });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to make note public');
+        try {
+            const response = await fetch(`${API_URL}/notes/${noteId}/make-public`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                }
+            });
+
+            const data = await response.json();
+            console.log('Server response:', data);
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to make note public');
+            }
+
+            if (!data.id) {
+                console.error('Invalid server response:', data);
+                throw new Error('Server returned invalid note data');
+            }
+
+            // Convert to Note object
+            const note: Note = {
+                id: data.id,
+                title: data.title,
+                content: data.content,
+                category: data.category || '',
+                userId: data.userId,
+                owner: data.owner,
+                status: NoteStatus.Public,
+                isPublic: true,
+                createdAt: new Date(data.createdAt),
+                updatedAt: new Date(data.updatedAt)
+            };
+
+            console.log('Converted note:', note);
+            return note;
+        } catch (error) {
+            console.error('Make note public error:', error);
+            throw error;
         }
     },
 
     searchUsers: async (searchTerm: string): Promise<User[]> => {
         const user = getCurrentUser();
-        if (!user?.Id) {
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
@@ -291,7 +365,7 @@ export const api = {
             const headers = {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'UserId': user.Id.toString()
+                'UserId': user.id.toString()
             };
             console.log('Request headers:', headers);
 
@@ -357,33 +431,37 @@ export const api = {
 
     getPublicNotes: async (): Promise<Note[]> => {
         const user = getCurrentUser();
-        if (!user?.Id) {
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
         try {
+            console.log('Fetching public notes');
             const response = await fetch(`${API_URL}/notes/public`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'UserId': user.Id.toString()
+                    'UserId': user.id.toString()
                 }
-            });
-
-            console.log('Public notes response:', {
-                status: response.status,
-                statusText: response.statusText,
-                headers: Object.fromEntries(response.headers.entries())
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(errorText || `HTTP error! status: ${response.status}`);
+                console.error('Failed to fetch public notes:', errorText);
+                throw new Error('Failed to fetch public notes');
             }
 
             const notes = await response.json();
-            return notes;
+            console.log('Received public notes:', notes);
+
+            return notes.map((note: any) => ({
+                ...note,
+                createdAt: new Date(note.createdAt || note.CreatedAt),
+                updatedAt: new Date(note.updatedAt || note.UpdatedAt),
+                status: NoteStatus.Public,
+                isPublic: true
+            }));
         } catch (error) {
             console.error('Error fetching public notes:', error);
             throw error;
@@ -392,34 +470,36 @@ export const api = {
 
     getSharedWithMeNotes: async (): Promise<Note[]> => {
         const user = getCurrentUser();
-        if (!user?.Id) {
+        if (!user?.id) {
             throw new Error('User not authenticated');
         }
 
-        console.log('Fetching shared notes for user:', user.Id);
+        try {
+            const response = await fetch(`${API_URL}/notes/shared`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'UserId': user.id.toString()
+                }
+            });
 
-        const response = await fetch(`${API_URL}/notes/shared?userId=${user.Id}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'UserId': user.Id.toString()
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText || 'Failed to fetch shared notes');
             }
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Failed to fetch shared notes:', errorText);
-            throw new Error('Failed to fetch shared notes');
-        }
-        
-        const notes = await response.json();
-        console.log('Received shared notes:', notes);
 
-        return notes.map((note: any) => ({
-            ...note,
-            createdAt: new Date(note.createdAt || note.CreatedAt),
-            updatedAt: new Date(note.updatedAt || note.UpdatedAt),
-            isShared: true
-        }));
+            const notes = await response.json();
+            return notes.map((note: any) => ({
+                ...note,
+                createdAt: new Date(note.createdAt || note.CreatedAt),
+                updatedAt: new Date(note.updatedAt || note.UpdatedAt),
+                status: getNoteStatus(note.status || note.Status),
+                isShared: true
+            }));
+        } catch (error) {
+            console.error('Error fetching shared notes:', error);
+            throw error;
+        }
     },
 };

@@ -20,6 +20,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<User> Users { get; set; } = null!;
     public DbSet<Note> Notes { get; set; } = null!;
+    public DbSet<NoteShare> NoteShares { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,21 +32,29 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(n => n.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<User>()
-            .HasMany(u => u.CollaborativeNotes)
-            .WithMany(n => n.Collaborators)
+        modelBuilder.Entity<Note>()
+            .HasMany(n => n.Collaborators)
+            .WithMany()
             .UsingEntity(
                 "NoteCollaborators",
-                j => j
-                    .HasOne(typeof(Note))
-                    .WithMany()
-                    .HasForeignKey("NoteId")
-                    .OnDelete(DeleteBehavior.NoAction),
-                j => j
-                    .HasOne(typeof(User))
-                    .WithMany()
-                    .HasForeignKey("UserId")
-                    .OnDelete(DeleteBehavior.NoAction)
-            );
+                l => l.HasOne(typeof(User)).WithMany().HasForeignKey("UserId").HasPrincipalKey(nameof(User.Id)).OnDelete(DeleteBehavior.NoAction),
+                r => r.HasOne(typeof(Note)).WithMany().HasForeignKey("NoteId").HasPrincipalKey(nameof(Note.Id)).OnDelete(DeleteBehavior.Cascade),
+                j =>
+                {
+                    j.HasKey("NoteId", "UserId");
+                    j.ToTable("NoteCollaborators");
+                });
+
+        modelBuilder.Entity<NoteShare>()
+            .HasOne(ns => ns.Note)
+            .WithMany(n => n.SharedWith)
+            .HasForeignKey(ns => ns.NoteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NoteShare>()
+            .HasOne(ns => ns.User)
+            .WithMany()
+            .HasForeignKey(ns => ns.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }

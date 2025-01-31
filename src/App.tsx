@@ -6,7 +6,7 @@ import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import { useAuth } from './contexts/AuthContext';
 import { Note, NoteApiResponse, NoteStatus } from './types/Note';
-import { api } from './services/api';
+import { api, getCurrentUser } from './services/api';
 import { ShareNoteDialog } from './components/ShareNoteDialog';
 import Modal from './components/Modal';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -31,6 +31,7 @@ function AppContent() {
     const [currentView, setCurrentView] = useState<ViewType>('my-notes');
     const [publicNotes, setPublicNotes] = useState<Note[]>([]);
     const [sharedWithMeNotes, setSharedWithMeNotes] = useState<Note[]>([]);
+    const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -45,35 +46,23 @@ function AppContent() {
         try {
             setIsLoading(true);
             setError(null);
-            
+            const user = getCurrentUser();
             console.log('Loading notes for user:', user);
             
-            const [myNotesResponse, shared] = await Promise.all([
+            // Load all types of notes in parallel
+            const [myNotes, sharedNotes, publicNotes] = await Promise.all([
                 api.getNotes(),
-                api.getSharedNotes()
-            ]) as [NoteApiResponse[], Note[]];
+                api.getSharedNotes(),
+                api.getPublicNotes()
+            ]);
             
-            console.log('API Response - myNotes:', myNotesResponse);
-            console.log('API Response - shared:', shared);
+            console.log('API Response - myNotes:', myNotes);
+            console.log('API Response - shared:', sharedNotes);
+            console.log('API Response - public:', publicNotes);
             
-            // Convert API response to Note format
-            const formattedMyNotes: Note[] = myNotesResponse.map(note => ({
-                id: note.id ?? note.Id ?? 0,
-                title: note.title ?? note.Title ?? '',
-                content: note.content ?? note.Content ?? '',
-                category: note.category ?? note.Category ?? '',
-                createdAt: new Date(note.createdAt ?? note.CreatedAt ?? Date.now()),
-                updatedAt: new Date(note.updatedAt ?? note.UpdatedAt ?? Date.now()),
-                userId: note.userId ?? note.UserId ?? 0,
-                isPublic: note.isPublic ?? note.IsPublic ?? false,
-                status: note.status ?? note.Status ?? NoteStatus.Personal,
-                user: note.user ?? note.User
-            }));
-
-            console.log('Setting notes state with:', formattedMyNotes);
-            setNotes(formattedMyNotes);
-            setSharedNotes(Array.isArray(shared) ? shared : []);
-
+            setNotes(myNotes);
+            setSharedWithMeNotes(sharedNotes);
+            setPublicNotes(publicNotes);
         } catch (err) {
             console.error('Error loading notes:', err);
             setError(err instanceof Error ? err.message : 'Failed to load notes');
@@ -139,38 +128,28 @@ function AppContent() {
 
     const handleMakePublic = async (noteId: number) => {
         try {
-            setError(null);
-            await api.makeNotePublic(noteId);
-            
-            // Reload both regular and shared notes
-            await loadAllNotes();
-            
-            // Update the selected note if it was made public
-            if (selectedNote?.id === noteId) {
-                const apiNote = await api.getNotes().then(notes => 
-                    notes.find(n => n.id === noteId || n.Id === noteId)
-                );
-
-                if (apiNote) {
-                    // Convert API response to Note format
-                    const updatedNote: Note = {
-                        id: apiNote.id ?? apiNote.Id ?? 0,
-                        title: apiNote.title ?? apiNote.Title ?? '',
-                        content: apiNote.content ?? apiNote.Content ?? '',
-                        category: apiNote.category ?? apiNote.Category ?? '',
-                        createdAt: new Date(apiNote.createdAt ?? apiNote.CreatedAt ?? Date.now()),
-                        updatedAt: new Date(apiNote.updatedAt ?? apiNote.UpdatedAt ?? Date.now()),
-                        userId: apiNote.userId ?? apiNote.UserId ?? 0,
-                        isPublic: apiNote.isPublic ?? apiNote.IsPublic ?? false,
-                        status: apiNote.status ?? apiNote.Status ?? NoteStatus.Personal,
-                        user: apiNote.user ?? apiNote.User
-                    };
-                    setSelectedNote(updatedNote);
-                }
+            console.log('handleMakePublic called with noteId:', noteId);
+            if (!noteId) {
+                console.error('Invalid note ID:', noteId);
+                return;
             }
-        } catch (err) {
-            setError('Failed to make note public');
-            console.error(err);
+
+            const updatedNote = await api.makeNotePublic(noteId);
+            console.log('Note successfully made public:', updatedNote);
+
+            // Update both notes lists
+            setNotes(prevNotes => prevNotes.filter(note => note.id !== noteId));
+            setPublicNotes(prevPublicNotes => [...prevPublicNotes, updatedNote]);
+
+            // Show success message
+            setMessage({ type: 'success', text: 'Note is now public' });
+
+            // Refresh lists
+            await loadAllNotes();
+            await loadPublicNotes();
+        } catch (error) {
+            console.error('Error making note public:', error);
+            setError(error instanceof Error ? error.message : 'Failed to make note public');
         }
     };
 
@@ -195,7 +174,7 @@ function AppContent() {
         notes.filter(note => {
             // First filter by user
             if (!user) return false;
-            const userId = user.id ?? user.Id ?? 0;
+            const userId = user.id ?? 0;
             const noteUserId = note.userId;
             if (userId !== noteUserId) return false;
             
@@ -275,12 +254,12 @@ function AppContent() {
     const loadPublicNotes = async () => {
         try {
             console.log('Loading public notes...');
-            const response = await api.getPublicNotes();
-            console.log('Public notes received:', response);
-            setPublicNotes(response);
+            const publicNotes = await api.getPublicNotes();
+            console.log('Public notes received:', publicNotes);
+            setPublicNotes(publicNotes);
         } catch (err) {
-            console.error('Failed to load public notes:', err);
-            setError('Failed to load public notes');
+            console.error('Error loading public notes:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load public notes');
         }
     };
 
@@ -349,6 +328,23 @@ function AppContent() {
         }
     }, [location.pathname]);
 
+    const handleShareNote = async (noteId: number, collaboratorId: number) => {
+        try {
+            const updatedNote = await api.shareNote(noteId, collaboratorId);
+            
+            // Update the notes list with the updated note
+            setNotes(notes.map(note => 
+                note.id === noteId ? updatedNote : note
+            ));
+            
+            // Show success message
+            setMessage({ type: 'success', text: 'Note shared successfully' });
+        } catch (error) {
+            console.error('Error sharing note:', error);
+            setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to share note' });
+        }
+    };
+
     if (!user) {
         return (
             <div className="App">
@@ -387,7 +383,7 @@ function AppContent() {
             <header className="App-header">
                 <h1>Notepad+</h1>
                 <div className="user-info">
-                    <span>Welcome, {user?.username || user?.Username}!</span>
+                    <span>Welcome, {user?.username}!</span>
                     <button className="logout-button" onClick={handleLogout}>
                         Logout
                     </button>
@@ -461,6 +457,7 @@ function AppContent() {
                                 onDeleteNote={handleDeleteNote}
                                 onMakePublic={handleMakePublic}
                                 onShare={handleShare}
+                                viewType="my-notes"
                             />
                         )}
                         {currentView === 'shared-notes' && (
@@ -471,6 +468,7 @@ function AppContent() {
                                 onDeleteNote={handleDeleteNote}
                                 onMakePublic={handleMakePublic}
                                 onShare={handleShare}
+                                viewType="shared-notes"
                                 isLoading={isLoading}
                                 error={error}
                             />
@@ -483,6 +481,9 @@ function AppContent() {
                                 onDeleteNote={handleDeleteNote}
                                 onMakePublic={handleMakePublic}
                                 onShare={handleShare}
+                                viewType="public-notes"
+                                isLoading={isLoading}
+                                error={error}
                             />
                         )}
                     </div>

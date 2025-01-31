@@ -12,7 +12,7 @@ using NotepadPlusApi.Data;
 namespace NotepadPlusApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250128105546_InitialCreate")]
+    [Migration("20250131073314_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,6 +24,21 @@ namespace NotepadPlusApi.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("NoteCollaborators", b =>
+                {
+                    b.Property<int>("NoteId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("NoteId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NoteCollaborators", (string)null);
+                });
 
             modelBuilder.Entity("NotepadPlusApi.Models.Note", b =>
                 {
@@ -44,6 +59,12 @@ namespace NotepadPlusApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -59,6 +80,32 @@ namespace NotepadPlusApi.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Notes");
+                });
+
+            modelBuilder.Entity("NotepadPlusApi.Models.NoteShare", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("NoteId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SharedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NoteId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("NoteShares");
                 });
 
             modelBuilder.Entity("NotepadPlusApi.Models.User", b =>
@@ -89,6 +136,21 @@ namespace NotepadPlusApi.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("NoteCollaborators", b =>
+                {
+                    b.HasOne("NotepadPlusApi.Models.Note", null)
+                        .WithMany()
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NotepadPlusApi.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("NotepadPlusApi.Models.Note", b =>
                 {
                     b.HasOne("NotepadPlusApi.Models.User", "User")
@@ -98,6 +160,30 @@ namespace NotepadPlusApi.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NotepadPlusApi.Models.NoteShare", b =>
+                {
+                    b.HasOne("NotepadPlusApi.Models.Note", "Note")
+                        .WithMany("SharedWith")
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NotepadPlusApi.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Note");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("NotepadPlusApi.Models.Note", b =>
+                {
+                    b.Navigation("SharedWith");
                 });
 
             modelBuilder.Entity("NotepadPlusApi.Models.User", b =>

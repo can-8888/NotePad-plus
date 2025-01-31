@@ -6,7 +6,13 @@ namespace NotepadPlusApi.Services
 {
     public interface INoteService
     {
+        Task<IEnumerable<Note>> GetPersonalNotesAsync(int userId);
+        Task<IEnumerable<Note>> GetSharedNotesAsync(int userId);
         Task<IEnumerable<Note>> GetPublicNotesAsync();
-        // Add other methods as needed
+        Task<Note> CreateNoteAsync(Note note);
+        Task<Note> UpdateNoteAsync(int id, Note note);
+        Task DeleteNoteAsync(int id);
+        Task ShareNoteAsync(int noteId, int collaboratorId);
+        Task<Note> MakeNotePublicAsync(int id);
     }
 } 
