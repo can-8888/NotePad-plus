@@ -31,19 +31,16 @@ public class NotesController : ControllerBase
     }
 
     // Base GET endpoint for notes
-    [HttpGet]  // Just use HttpGet without any route
+    [HttpGet]
     public async Task<ActionResult<IEnumerable<Note>>> GetNotes()
     {
         try
         {
-            _logger.LogInformation($"GetNotes endpoint hit at {DateTime.UtcNow}");
-            
             var userIdString = Request.Headers["UserId"].FirstOrDefault();
-            _logger.LogInformation($"UserId from header: {userIdString}");
+            _logger.LogInformation($"Getting all notes created by user: {userIdString}");
 
             if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
             {
-                _logger.LogWarning("Invalid or missing UserId in request headers");
                 return BadRequest(new { message = "User ID not provided" });
             }
 
@@ -100,7 +97,7 @@ public class NotesController : ControllerBase
                 Title = request.Title,
                 Content = request.Content,
                 Category = request.Category,
-                UserId = userId,
+                OwnerId = userId,
                 Status = NoteStatus.Personal,
                 IsPublic = false,
                 CreatedAt = DateTime.UtcNow,
@@ -113,18 +110,7 @@ public class NotesController : ControllerBase
             return CreatedAtAction(
                 nameof(GetNotes), 
                 new { id = createdNote.Id }, 
-                new
-                {
-                    id = createdNote.Id,
-                    title = createdNote.Title,
-                    content = createdNote.Content,
-                    category = createdNote.Category,
-                    userId = createdNote.UserId,
-                    status = createdNote.Status,
-                    isPublic = createdNote.IsPublic,
-                    createdAt = createdNote.CreatedAt,
-                    updatedAt = createdNote.UpdatedAt
-                });
+                FormatNoteResponse(createdNote));
         }
         catch (Exception ex)
         {
@@ -134,39 +120,42 @@ public class NotesController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<Note>> UpdateNote(int id, [FromBody] NoteDto noteDto)
+    public async Task<IActionResult> UpdateNote(int id, NoteDto noteDto)
     {
         try
         {
-            var existingNote = await _context.Notes.FindAsync(id);
-            if (existingNote == null)
+            var userIdString = Request.Headers["UserId"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
             {
-                return NotFound(new { message = $"Note with ID {id} not found" });
+                return BadRequest(new { message = "User ID not provided" });
             }
 
-            existingNote.Title = noteDto.Title;
-            existingNote.Content = noteDto.Content;
-            existingNote.Category = noteDto.Category;
-            existingNote.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            // Return the updated note
-            return Ok(new
+            // Convert NoteDto to Note
+            var note = new Note
             {
-                id = existingNote.Id,
-                title = existingNote.Title,
-                content = existingNote.Content,
-                category = existingNote.Category,
-                createdAt = existingNote.CreatedAt,
-                updatedAt = existingNote.UpdatedAt,
-                userId = existingNote.UserId,
-                isPublic = existingNote.IsPublic
-            });
+                Id = id,
+                Title = noteDto.Title,
+                Content = noteDto.Content,
+                Category = noteDto.Category,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            var existingNote = await _noteService.UpdateNoteAsync(id, note);
+            if (existingNote.OwnerId != userId)
+            {
+                return Forbid();
+            }
+
+            return Ok(FormatNoteResponse(existingNote));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = $"Error updating note: {ex.Message}" });
+            _logger.LogError(ex, "Error updating note");
+            return StatusCode(500, new { message = "Internal server error" });
         }
     }
 
@@ -183,15 +172,8 @@ public class NotesController : ControllerBase
                 return BadRequest(new { message = "User ID not provided" });
             }
 
-            // Verify the note exists and belongs to the user
-            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
-            if (note == null)
-            {
-                return NotFound(new { message = $"Note with ID {id} not found or doesn't belong to the user" });
-            }
-
             await _noteService.DeleteNoteAsync(id);
-            return Ok(new { message = "Note deleted successfully" });
+            return NoContent();
         }
         catch (Exception ex)
         {
@@ -215,7 +197,7 @@ public class NotesController : ControllerBase
 
             var note = await _context.Notes
                 .Include(n => n.Collaborators)
-                .FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
+                .FirstOrDefaultAsync(n => n.Id == id && n.OwnerId == userId);
 
             if (note == null)
             {
@@ -262,18 +244,14 @@ public class NotesController : ControllerBase
     {
         try
         {
-            if (!Request.Headers.TryGetValue("UserId", out var userIdHeader))
+            var userIdString = Request.Headers["UserId"].FirstOrDefault();
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out int userId))
             {
                 return BadRequest(new { message = "User ID not provided" });
             }
 
-            if (!int.TryParse(userIdHeader, out int userId))
-            {
-                return BadRequest(new { message = "Invalid User ID format" });
-            }
-
             var notes = await _noteService.GetSharedNotesAsync(userId);
-            return Ok(notes);
+            return Ok(notes.Select(n => FormatNoteResponse(n)));
         }
         catch (Exception ex)
         {
@@ -297,8 +275,8 @@ public class NotesController : ControllerBase
 
             // First verify the note exists and belongs to the user
             var note = await _context.Notes
-                .Include(n => n.User)
-                .FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
+                .Include(n => n.Owner)
+                .FirstOrDefaultAsync(n => n.Id == id && n.OwnerId == userId);
 
             if (note == null)
             {
@@ -316,8 +294,8 @@ public class NotesController : ControllerBase
                 title = updatedNote.Title,
                 content = updatedNote.Content,
                 category = updatedNote.Category,
-                userId = updatedNote.UserId,
-                owner = updatedNote.User?.Username,
+                ownerId = updatedNote.OwnerId,
+                owner = updatedNote.Owner?.Username,
                 status = (int)updatedNote.Status,  // Send numeric value
                 isPublic = true,
                 createdAt = updatedNote.CreatedAt.ToString("o"),
@@ -373,7 +351,7 @@ public class NotesController : ControllerBase
 
     private async Task EnsureTestData(int userId)
     {
-        if (!await _context.Notes.AnyAsync(n => n.UserId == userId))
+        if (!await _context.Notes.AnyAsync(n => n.OwnerId == userId))
         {
             var testNote = new Note
             {
@@ -382,7 +360,7 @@ public class NotesController : ControllerBase
                 Category = "Test",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                UserId = userId,
+                OwnerId = userId,
                 Status = NoteStatus.Personal,
                 IsPublic = false
             };
@@ -395,21 +373,25 @@ public class NotesController : ControllerBase
 
     private object FormatNoteResponse(Note note)
     {
-        var response = new
+        return new
         {
             id = note.Id,
             title = note.Title,
             content = note.Content,
             category = note.Category,
-            userId = note.UserId,
-            owner = note.User?.Username,
+            ownerId = note.OwnerId,
             status = note.Status,
             isPublic = note.IsPublic,
-            createdAt = note.CreatedAt.ToString("o"),
-            updatedAt = note.UpdatedAt.ToString("o")
+            createdAt = note.CreatedAt,
+            updatedAt = note.UpdatedAt,
+            owner = note.Owner?.Username,
+            statusText = note.Status switch
+            {
+                NoteStatus.Public => "Public",
+                NoteStatus.Shared => "Shared",
+                NoteStatus.Personal => "Personal",
+                _ => "Personal"
+            }
         };
-
-        _logger.LogInformation($"Formatted note response: {JsonSerializer.Serialize(response)}");
-        return response;
     }
 }

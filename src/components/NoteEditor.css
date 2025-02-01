@@ -1,7 +1,8 @@
 .note-editor {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 1rem;
+    padding: 1rem;
 }
 
 .note-editor h2 {
@@ -19,57 +20,43 @@
     color: #666;
 }
 
-.form-group input,
-.form-group textarea {
-    width: 100%;
-    padding: 8px;
+.note-editor input,
+.note-editor textarea {
+    padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 1rem;
 }
 
-.form-group input {
-    height: 36px;
-}
-
-.form-group textarea {
+.note-editor textarea {
     min-height: 200px;
-    max-height: 400px;
     resize: vertical;
 }
 
 .button-group {
     display: flex;
-    gap: 10px;
-    margin-top: 1rem;
+    gap: 1rem;
     justify-content: flex-end;
+    margin-top: 1rem;
 }
 
-.button-group button {
-    padding: 8px 16px;
+.save-button,
+.cancel-button {
+    padding: 0.5rem 1rem;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
+    font-size: 1rem;
 }
 
-.button-group button[type="submit"] {
-    background-color: #2196f3;
+.save-button {
+    background-color: #4CAF50;
     color: white;
 }
 
-.button-group button[type="submit"]:hover {
-    background-color: #1976d2;
-}
-
-.button-group button[type="button"] {
-    background-color: #e0e0e0;
-    color: #333;
-}
-
-.button-group button[type="button"]:hover {
-    background-color: #bdbdbd;
+.cancel-button {
+    background-color: #f44336;
+    color: white;
 }
 
 .form-group input:focus,

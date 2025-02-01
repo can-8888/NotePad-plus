@@ -1,7 +1,14 @@
 export enum NoteStatus {
-    Personal = 0,
-    Shared = 1,
-    Public = 2
+    Personal = 'Personal',
+    Shared = 'Shared',
+    Public = 'Public'
+}
+
+export interface User {
+    id: number;
+    username: string;
+    email: string;
+    createdAt: Date;
 }
 
 export interface Note {
@@ -10,20 +17,13 @@ export interface Note {
     content: string;
     category: string;
     userId: number;
-    owner?: string;
+    owner: string;
     status: NoteStatus;
     isPublic: boolean;
     createdAt: Date;
     updatedAt: Date;
     user?: User;
     collaborators?: User[];
-}
-
-export interface User {
-    id: number;
-    username: string;
-    email: string;
-    createdAt: Date;
 }
 
 export interface NoteApiResponse {
@@ -36,6 +36,7 @@ export interface NoteApiResponse {
     userId: number;
     isPublic: boolean;
     status: NoteStatus;
+    owner: string;  // Add owner to match Note interface
     user?: User;
 }
 
@@ -44,26 +45,22 @@ export const convertApiResponseToNote = (apiNote: NoteApiResponse): Note => ({
     ...apiNote,
     createdAt: new Date(apiNote.createdAt),
     updatedAt: new Date(apiNote.updatedAt),
-    status: apiNote.status as NoteStatus  // Ensure proper enum conversion
+    status: apiNote.status
 });
 
 // Helper function to ensure proper status conversion
-export const getNoteStatus = (status: string | number | NoteStatus): NoteStatus => {
-    if (typeof status === 'number') {
-        return status as NoteStatus;
+export const getNoteStatus = (status: string | NoteStatus): NoteStatus => {
+    if (typeof status === 'string') {
+        switch (status.toLowerCase()) {
+            case 'personal':
+                return NoteStatus.Personal;
+            case 'shared':
+                return NoteStatus.Shared;
+            case 'public':
+                return NoteStatus.Public;
+            default:
+                return NoteStatus.Personal;
+        }
     }
-    
-    switch (status.toString().toLowerCase()) {
-        case 'personal':
-        case '0':
-            return NoteStatus.Personal;
-        case 'shared':
-        case '1':
-            return NoteStatus.Shared;
-        case 'public':
-        case '2':
-            return NoteStatus.Public;
-        default:
-            return NoteStatus.Personal;
-    }
+    return status;
 };

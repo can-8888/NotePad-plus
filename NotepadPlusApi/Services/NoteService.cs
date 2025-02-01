@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using NotepadPlusApi.Models;
 using NotepadPlusApi.Data;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 using System;
 
 namespace NotepadPlusApi.Services
@@ -27,8 +26,8 @@ namespace NotepadPlusApi.Services
             {
                 _logger.LogInformation("Getting public notes");
 
-                var publicNotes = await _context.Notes
-                    .Include(n => n.User)
+                return await _context.Notes
+                    .Include(n => n.Owner)
                     .Where(n => n.Status == NoteStatus.Public)
                     .OrderByDescending(n => n.UpdatedAt)
                     .Select(n => new Note
@@ -37,26 +36,19 @@ namespace NotepadPlusApi.Services
                         Title = n.Title,
                         Content = n.Content,
                         Category = n.Category,
-                        UserId = n.UserId,
+                        OwnerId = n.OwnerId,
                         Status = n.Status,
                         IsPublic = n.IsPublic,
                         CreatedAt = n.CreatedAt,
                         UpdatedAt = n.UpdatedAt,
-                        User = new User 
-                        { 
-                            Id = n.User.Id,
-                            Username = n.User.Username 
+                        Owner = new User
+                        {
+                            Id = n.Owner.Id,
+                            Username = n.Owner.Username,
+                            Email = n.Owner.Email
                         }
                     })
                     .ToListAsync();
-
-                _logger.LogInformation($"Found {publicNotes.Count} public notes");
-                foreach (var note in publicNotes)
-                {
-                    _logger.LogInformation($"Public note: Id={note.Id}, Status={note.Status} ({(int)note.Status})");
-                }
-
-                return publicNotes;
             }
             catch (Exception ex)
             {
@@ -65,42 +57,38 @@ namespace NotepadPlusApi.Services
             }
         }
 
-        public async Task<IEnumerable<Note>> GetPersonalNotesAsync(int userId)
-        {
-            // Get only personal notes owned by the user
-            return await _context.Notes
-                .Include(n => n.User)
-                .Where(n => n.UserId == userId && n.Status == NoteStatus.Personal)
-                .OrderByDescending(n => n.UpdatedAt)
-                .ToListAsync();
-        }
-
         public async Task<IEnumerable<Note>> GetSharedNotesAsync(int userId)
         {
             _logger.LogInformation($"Getting shared notes for user {userId}");
 
             try
             {
-                // Include all necessary relationships and handle both shared with me and my shared notes
-                var sharedNotes = await _context.Notes
-                    .Include(n => n.User)
+                return await _context.Notes
+                    .Include(n => n.Owner)
                     .Include(n => n.Collaborators)
                     .Include(n => n.SharedWith)
                     .Where(n => (n.Status == NoteStatus.Shared && n.Collaborators.Any(c => c.Id == userId)) || 
                                n.SharedWith.Any(s => s.UserId == userId))
                     .OrderByDescending(n => n.UpdatedAt)
+                    .Select(n => new Note
+                    {
+                        Id = n.Id,
+                        Title = n.Title,
+                        Content = n.Content,
+                        Category = n.Category,
+                        OwnerId = n.OwnerId,
+                        Status = n.Status,
+                        IsPublic = n.IsPublic,
+                        CreatedAt = n.CreatedAt,
+                        UpdatedAt = n.UpdatedAt,
+                        Owner = new User
+                        {
+                            Id = n.Owner.Id,
+                            Username = n.Owner.Username,
+                            Email = n.Owner.Email
+                        }
+                    })
                     .ToListAsync();
-
-                _logger.LogInformation($"Found {sharedNotes.Count} shared notes for user {userId}");
-                foreach (var note in sharedNotes)
-                {
-                    _logger.LogDebug($"Shared note: Id={note.Id}, Title={note.Title}, " +
-                                   $"Owner={note.User?.Username}, " +
-                                   $"Status={note.Status}, " +
-                                   $"Collaborators={note.Collaborators.Count}");
-                }
-
-                return sharedNotes;
             }
             catch (Exception ex)
             {
@@ -109,11 +97,61 @@ namespace NotepadPlusApi.Services
             }
         }
 
+        public async Task<IEnumerable<Note>> GetPersonalNotesAsync(int userId)
+        {
+            try
+            {
+                _logger.LogInformation($"Getting all notes for user {userId}");
+
+                return await _context.Notes
+                    .Include(n => n.Owner)
+                    .Include(n => n.Permissions)
+                    .Where(n => n.OwnerId == userId || // Notes owned by user
+                               n.Permissions.Any(p => p.UserId == userId)) // Notes with permissions
+                    .OrderByDescending(n => n.UpdatedAt)
+                    .Select(n => new Note
+                    {
+                        Id = n.Id,
+                        Title = n.Title,
+                        Content = n.Content,
+                        Category = n.Category,
+                        OwnerId = n.OwnerId,
+                        Status = n.Status,
+                        IsPublic = n.IsPublic,
+                        CreatedAt = n.CreatedAt,
+                        UpdatedAt = n.UpdatedAt,
+                        Owner = new User
+                        {
+                            Id = n.Owner.Id,
+                            Username = n.Owner.Username,
+                            Email = n.Owner.Email
+                        },
+                        Permissions = n.Permissions.Select(p => new NotePermission
+                        {
+                            UserId = p.UserId,
+                            PermissionType = p.PermissionType,
+                            User = new User
+                            {
+                                Id = p.User.Id,
+                                Username = p.User.Username,
+                                Email = p.User.Email
+                            }
+                        }).ToList()
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error getting notes for user {userId}");
+                throw;
+            }
+        }
+
         public async Task<Note> CreateNoteAsync(Note note)
         {
             try
             {
-                _logger.LogInformation($"Creating note for user {note.UserId}");
+                _logger.LogInformation($"Creating note for user {note.OwnerId}");
 
                 // Ensure required fields are set
                 note.CreatedAt = DateTime.UtcNow;
@@ -158,17 +196,15 @@ namespace NotepadPlusApi.Services
                 _logger.LogInformation($"Deleting note {id}");
 
                 var note = await _context.Notes
-                    .Include(n => n.Collaborators)  // Include related collaborators
-                    .Include(n => n.SharedWith)     // Include related shares
+                    .Include(n => n.Collaborators)
+                    .Include(n => n.SharedWith)
                     .FirstOrDefaultAsync(n => n.Id == id);
 
                 if (note != null)
                 {
-                    // Clear the relationships first
                     note.Collaborators.Clear();
                     note.SharedWith.Clear();
                     
-                    // Then remove the note
                     _context.Notes.Remove(note);
                     await _context.SaveChangesAsync();
                     
@@ -213,7 +249,7 @@ namespace NotepadPlusApi.Services
             try
             {
                 var note = await _context.Notes
-                    .Include(n => n.User)
+                    .Include(n => n.Owner)
                     .FirstOrDefaultAsync(n => n.Id == noteId);
 
                 if (note == null)
@@ -223,16 +259,10 @@ namespace NotepadPlusApi.Services
 
                 _logger.LogInformation($"Before update - Note {noteId}: Status={note.Status} ({(int)note.Status})");
 
-                // Use direct SQL update with value 2 since we know it works
-                await _context.Database.ExecuteSqlInterpolatedAsync(
-                    $@"UPDATE Notes 
-                       SET Status = 2,  -- Explicitly use 2 for Public
-                           IsPublic = 1, 
-                           UpdatedAt = {DateTime.UtcNow} 
-                       WHERE Id = {noteId}");
-
-                // Force a reload of the entity
-                await _context.Entry(note).ReloadAsync();
+                note.Status = NoteStatus.Public;
+                note.IsPublic = true;
+                note.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"After update - Note {noteId}: Status={note.Status} ({(int)note.Status})");
 
@@ -244,7 +274,5 @@ namespace NotepadPlusApi.Services
                 throw;
             }
         }
-
-        // Add other required interface methods here
     }
-} 
+}

@@ -12,6 +12,7 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 
-    [JsonIgnore]
-    public virtual ICollection<Note> Notes { get; set; } = new List<Note>();
+    // Remove the Notes navigation property if it exists
+    // [JsonIgnore]
+    // public virtual ICollection<Note> Notes { get; set; } = new List<Note>();
 }

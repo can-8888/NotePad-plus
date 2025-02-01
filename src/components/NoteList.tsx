@@ -16,6 +16,7 @@ interface NoteListProps {
 
 const NoteList: React.FC<NoteListProps> = ({ 
     notes, 
+    selectedNote,
     onNoteSelect, 
     onDeleteNote, 
     onMakePublic,
@@ -23,79 +24,92 @@ const NoteList: React.FC<NoteListProps> = ({
     isLoading,
     error 
 }) => {
+    // Add debug logging
+    console.log('NoteList render:', {
+        notesCount: notes.length,
+        notes,
+        isLoading,
+        error
+    });
+
     // Helper function to get status class name
-    const getStatusClassName = (status: NoteStatus): string => {
+    const getStatusClassName = (status: NoteStatus, isPublic: boolean): string => {
+        if (isPublic) return 'public';
+        return status.toLowerCase();
+    };
+
+    // Helper function to get status text
+    const getStatusText = (status: NoteStatus, isPublic: boolean): string => {
+        if (isPublic) return 'Public';
         switch (status) {
-            case NoteStatus.Public:
-                return 'public';
             case NoteStatus.Shared:
-                return 'shared';
+                return 'Shared';
             case NoteStatus.Personal:
-                return 'personal';
+                return 'Personal';
             default:
-                return 'personal';
+                return 'Personal';
         }
     };
 
-    if (isLoading) return <div>Loading...</div>;
-    if (error) return <div className="error">{error}</div>;
+    if (isLoading) {
+        console.log('Loading state');
+        return <div>Loading...</div>;
+    }
+    if (error) {
+        console.log('Error state:', error);
+        return <div className="error">{error}</div>;
+    }
+    if (notes.length === 0) {
+        console.log('No notes state');
+        return <div className="no-notes-message">No notes found</div>;
+    }
 
     return (
         <div className="notes-grid">
-            {notes.map(note => (
-                <div key={note.id} className="note-card">
-                    <div className="note-content" onClick={() => onNoteSelect(note)}>
-                        <div className="note-header">
-                            <h3 className="note-title">{note.title}</h3>
-                        </div>
-                        <p className="note-preview">{note.content}</p>
-                        <div className="note-metadata">
-                            <div className="note-category">Category: {note.category}</div>
-                            {note.owner && <div className="note-owner">Owner: {note.owner}</div>}
-                        </div>
+            {notes.map((note) => (
+                <div 
+                    key={note.id} 
+                    className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
+                >
+                    <div className="note-header">
+                        <h3 className="note-title">{note.title}</h3>
                     </div>
                     
-                    <div className="note-actions">
-                        <span className={`note-status ${getStatusClassName(note.status)}`}>
-                            {NoteStatus[note.status]}
+                    <div className="note-right-content">
+                        <span className={`note-status ${getStatusClassName(note.status, note.isPublic)}`}>
+                            {getStatusText(note.status, note.isPublic)}
                         </span>
-                        <button 
-                            className="delete-btn"
-                            onClick={(e) => {
+                        <div className="note-actions">
+                            <button className="delete-button" onClick={(e) => {
                                 e.stopPropagation();
                                 onDeleteNote(note.id);
-                            }}
-                        >
-                            Delete
-                        </button>
-                        <button 
-                            className="share-btn"
-                            onClick={(e) => {
+                            }}>
+                                Delete
+                            </button>
+                            <button className="share-button" onClick={(e) => {
                                 e.stopPropagation();
                                 onShare(note.id);
-                            }}
-                        >
-                            Share
-                        </button>
-                        {note.status !== NoteStatus.Public && (
-                            <button 
-                                className="public-btn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    console.log('Make Public clicked for note:', {
-                                        id: note.id,
-                                        title: note.title,
-                                        status: NoteStatus[note.status],
-                                        numericStatus: note.status
-                                    });
-                                    if (note.id) {
-                                        onMakePublic(note.id);
-                                    }
-                                }}
-                            >
-                                Make Public
+                            }}>
+                                Share
                             </button>
-                        )}
+                            {note.status !== NoteStatus.Public && (
+                                <button className="public-button" onClick={(e) => {
+                                    e.stopPropagation();
+                                    onMakePublic(note.id);
+                                }}>
+                                    Make Public
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="note-content" onClick={() => onNoteSelect(note)}>
+                        <p>{note.content}</p>
+                    </div>
+                    
+                    <div className="note-metadata">
+                        <div>Category: {note.category || 'Uncategorized'}</div>
+                        <div>Owner: {note.owner}</div>
                     </div>
                 </div>
             ))}

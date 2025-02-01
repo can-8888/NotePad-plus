@@ -1,5 +1,6 @@
 import { Note, User, NoteApiResponse, NoteStatus, convertApiResponseToNote, getNoteStatus } from '../types/Note';
 import { LoginRequest, RegisterRequest } from '../types/Auth';
+import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -40,6 +41,22 @@ const getToken = (): string | null => {
     // If you store the token separately in localStorage
     return localStorage.getItem('token');
 };
+
+// Configure axios with default headers
+axios.interceptors.request.use((config: any) => {
+    const user = getCurrentUser();
+    if (user && config.headers) {
+        config.headers['UserId'] = user.id.toString();  // Make sure to convert to string
+        console.log('Setting UserId header:', user.id); // Debug log
+    } else {
+        console.log('No user found for header'); // Debug log
+    }
+    return config;
+});
+
+interface SearchUsersResponse {
+    users: User[];
+}
 
 export const api = {
     // Auth operations
@@ -89,30 +106,23 @@ export const api = {
     // Note operations
     getNotes: async (): Promise<Note[]> => {
         const user = getCurrentUser();
-        if (!user?.id) {
+        if (!user) {
             throw new Error('User not authenticated');
         }
 
         try {
-            const response = await fetch(`${API_URL}/notes`, {
-                method: 'GET',
+            const response = await axios.get<Note[]>(`${API_URL}/notes`, {
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
                     'UserId': user.id.toString()
                 }
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch notes');
-            }
-
-            const notes = await response.json();
-            return notes.map((note: any) => ({
+            
+            // Transform the response to ensure correct status
+            return response.data.map(note => ({
                 ...note,
-                createdAt: new Date(note.createdAt),
-                updatedAt: new Date(note.updatedAt),
-                status: getNoteStatus(note.status)
+                status: note.isPublic ? NoteStatus.Public : 
+                        note.status === NoteStatus.Shared ? NoteStatus.Shared : 
+                        NoteStatus.Personal
             }));
         } catch (error) {
             console.error('Error fetching notes:', error);
@@ -122,81 +132,42 @@ export const api = {
 
     createNote: async (note: Partial<Note>): Promise<Note> => {
         const user = getCurrentUser();
-        if (!user?.id) {
+        if (!user) {
             throw new Error('User not authenticated');
         }
 
         try {
             const noteData = {
-                title: note.title || '',
-                content: note.content || '',
-                category: note.category || '',
+                ...note,
                 userId: user.id,
-                status: NoteStatus.Personal,
+                status: note.status || NoteStatus.Personal,
                 isPublic: false
             };
 
-            console.log('Creating note with data:', noteData);
-
-            const response = await fetch(`${API_URL}/notes`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'UserId': user.id.toString()
-                },
-                body: JSON.stringify(noteData)
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Create note error response:', errorText);
-                throw new Error(errorText || 'Failed to create note');
-            }
-
-            const createdNote = await response.json();
-            return {
-                ...createdNote,
-                createdAt: new Date(createdNote.createdAt),
-                updatedAt: new Date(createdNote.updatedAt),
-                status: getNoteStatus(createdNote.status)
-            };
+            const response = await axios.post<Note>(`${API_URL}/notes`, noteData);
+            return response.data;
         } catch (error) {
-            console.error('Create note error:', error);
+            console.error('Error creating note:', error);
             throw error;
         }
     },
 
     updateNote: async (id: number, note: Partial<Note>): Promise<Note> => {
+        const user = getCurrentUser();
+        if (!user) {
+            throw new Error('User not authenticated');
+        }
+
         try {
-            const response = await fetch(`${API_URL}/notes/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    id,
-                    title: note.title || '',
-                    content: note.content || '',
-                    category: note.category || '',
-                    userId: note.userId
-                }),
+            const response = await axios.put<Note>(`${API_URL}/notes/${id}`, {
+                ...note,
+                id,
+                userId: user.id
             });
-
-            if (!response.ok) {
-                const error = await response.text();
-                throw new Error(error || 'Failed to update note');
-            }
-
-            const updatedNote = await response.json();
-            return {
-                ...updatedNote,
-                createdAt: new Date(updatedNote.createdAt),
-                updatedAt: new Date(updatedNote.updatedAt)
-            };
-        } catch (err) {
-            console.error('Update error:', err);
-            throw err;
+            return response.data;
+        } catch (error) {
+            console.error('Error updating note:', error);
+            throw error;
         }
     },
 
@@ -229,42 +200,28 @@ export const api = {
 
     shareNote: async (noteId: number, collaboratorId: number): Promise<Note> => {
         const user = getCurrentUser();
-        if (!user?.id) {
+        if (!user) {
             throw new Error('User not authenticated');
         }
 
         try {
-            console.log(`Sharing note ${noteId} with user ${collaboratorId}`);
-            const response = await fetch(`${API_URL}/notes/${noteId}/share`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'UserId': user.id.toString()
-                },
-                body: JSON.stringify({
-                    collaboratorId: collaboratorId
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Share note error:', errorText);
-                throw new Error(errorText || `Failed to share note (${response.status})`);
-            }
-
-            const result = await response.json();
+            const response = await axios.post<Note>(
+                `${API_URL}/notes/${noteId}/share`,
+                { collaboratorId },
+                {
+                    headers: {
+                        'UserId': user.id.toString()
+                    }
+                }
+            );
             
-            // Update the local note with the new status and collaborators
+            // Ensure the returned note has the correct status
             return {
-                ...result.note,
-                createdAt: new Date(result.note.createdAt),
-                updatedAt: new Date(result.note.updatedAt),
-                status: getNoteStatus(result.note.status),
-                isShared: true
+                ...response.data,
+                status: NoteStatus.Shared
             };
         } catch (error) {
-            console.error('Share note error:', error);
+            console.error('Error sharing note:', error);
             throw error;
         }
     },
@@ -297,135 +254,63 @@ export const api = {
 
     makeNotePublic: async (noteId: number): Promise<Note> => {
         const user = getCurrentUser();
-        if (!user?.id) {
+        if (!user) {
             throw new Error('User not authenticated');
         }
 
-        console.log('makeNotePublic called with:', { noteId, userId: user.id });
-
         try {
-            const response = await fetch(`${API_URL}/notes/${noteId}/make-public`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'UserId': user.id.toString()
+            const response = await axios.post<Note>(
+                `${API_URL}/notes/${noteId}/make-public`,
+                {},
+                {
+                    headers: {
+                        'UserId': user.id.toString()
+                    }
                 }
-            });
-
-            const data = await response.json();
-            console.log('Server response:', data);
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to make note public');
-            }
-
-            if (!data.id) {
-                console.error('Invalid server response:', data);
-                throw new Error('Server returned invalid note data');
-            }
-
-            // Convert to Note object
-            const note: Note = {
-                id: data.id,
-                title: data.title,
-                content: data.content,
-                category: data.category || '',
-                userId: data.userId,
-                owner: data.owner,
+            );
+            
+            // Ensure the returned note has the correct status
+            return {
+                ...response.data,
                 status: NoteStatus.Public,
-                isPublic: true,
-                createdAt: new Date(data.createdAt),
-                updatedAt: new Date(data.updatedAt)
+                isPublic: true
             };
-
-            console.log('Converted note:', note);
-            return note;
         } catch (error) {
-            console.error('Make note public error:', error);
+            console.error('Error making note public:', error);
             throw error;
         }
     },
 
-    searchUsers: async (searchTerm: string): Promise<User[]> => {
+    searchUsers: async (searchTerm: string): Promise<SearchUsersResponse> => {
         const user = getCurrentUser();
-        if (!user?.id) {
+        if (!user) {
             throw new Error('User not authenticated');
         }
 
-        console.log('Starting user search with term:', searchTerm);
-        console.log('Current user:', user);
-
         try {
-            // Use lowercase 'users' in the URL
-            const url = new URL(`${API_URL}/users/search`);
-            url.searchParams.append('term', searchTerm);
-            console.log('Request URL:', url.toString());
-
-            const headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'UserId': user.id.toString()
-            };
-            console.log('Request headers:', headers);
-
-            // Test the controller first
-            const pingResponse = await fetch(`${API_URL}/users/ping`);
-            console.log('Ping response:', await pingResponse.text());
-
-            const response = await fetch(url.toString(), {
-                method: 'GET',
-                headers
-            });
-
-            console.log('Response status:', response.status);
-            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-            
-            const responseText = await response.text();
-            console.log('Raw response text:', responseText);
-
-            if (!response.ok) {
-                console.error('Response not OK:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    body: responseText
-                });
-                throw new Error(responseText || `HTTP error! status: ${response.status}`);
-            }
-
-            if (!responseText.trim()) {
-                console.warn('Empty response received');
-                return [];
-            }
-
-            try {
-                const data = JSON.parse(responseText);
-                console.log('Parsed response data:', data);
-
-                if (!data.users) {
-                    console.error('Response missing users array:', data);
-                    return [];
+            console.log('Searching users with term:', searchTerm);
+            const response = await axios.get<SearchUsersResponse>(`${API_URL}/users/search`, {
+                params: { 
+                    term: searchTerm
+                },
+                headers: {
+                    'UserId': user.id.toString(),
+                    'Content-Type': 'application/json'
                 }
-
-                const mappedUsers = data.users.map((user: any) => ({
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    createdAt: new Date(user.createdAt)
-                }));
-                console.log('Mapped users:', mappedUsers);
-                return mappedUsers;
-
-            } catch (parseError) {
-                console.error('JSON parse error:', parseError);
-                throw new Error('Invalid JSON response from server');
-            }
-        } catch (error) {
-            console.error('Search users error:', {
-                error,
-                message: error instanceof Error ? error.message : 'Unknown error'
             });
-            throw error instanceof Error ? error : new Error('Failed to search users');
+            console.log('Search response:', response.data);
+            return response.data;
+        } catch (error: any) {
+            if (error?.isAxiosError) {
+                console.error('Search users error:', {
+                    status: error.response?.status,
+                    data: error.response?.data,
+                    message: error.message
+                });
+            } else {
+                console.error('Unexpected error:', error);
+            }
+            throw error;
         }
     },
 

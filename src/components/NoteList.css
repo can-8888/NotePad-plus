@@ -40,30 +40,41 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    width: 120px;
+    min-width: 100px;
 }
 
 .note-actions button {
     width: 100%;
     padding: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.note-actions button:first-child {
-    background-color: #2196f3;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
     color: white;
 }
 
-.note-actions button:nth-child(2) {
-    background-color: #4caf50;
-    color: white;
+.delete-button {
+    background-color: #ff4444;
 }
 
-.note-actions button:last-child {
-    background-color: #f44336;
-    color: white;
+.delete-button:hover {
+    background-color: #cc0000;
+}
+
+.share-button {
+    background-color: #4CAF50;
+}
+
+.share-button:hover {
+    background-color: #45a049;
+}
+
+.public-button {
+    background-color: #2196F3;
+}
+
+.public-button:hover {
+    background-color: #1976D2;
 }
 
 .note-lists-container {
@@ -80,39 +91,63 @@
 
 .notes-grid {
     display: grid;
-    gap: 1rem;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+    width: 100%;
+    min-height: 100%;
+    background-color: #f5f5f5;
 }
 
 .note-card {
-    display: grid;
-    grid-template-columns: 1fr 120px;
-    gap: 16px;
-    background: white;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
     border-radius: 8px;
-    padding: 16px;
+    padding: 15px;
+    background: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     min-height: 200px;
+    position: relative;
+}
+
+.note-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
 }
 
 .note-header {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 .note-title {
+    font-size: 1.1rem;
+    font-weight: 500;
     margin: 0;
-    font-size: 1.2em;
-    flex-grow: 1;
+    max-width: 70%;
+}
+
+.note-right-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    position: absolute;
+    top: 15px;
+    right: 15px;
 }
 
 .note-status {
-    width: 100%;
-    padding: 8px;
-    text-align: center;
-    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
 }
 
 .note-status.personal {
@@ -122,12 +157,68 @@
 
 .note-status.shared {
     background-color: #e8f5e9;
-    color: #388e3c;
+    color: #2e7d32;
 }
 
 .note-status.public {
     background-color: #fff3e0;
-    color: #f57c00;
+    color: #e65100;
+}
+
+.note-status.personal::before {
+    content: "🔒";
+    margin-right: 4px;
+}
+
+.note-status.shared::before {
+    content: "👥";
+    margin-right: 4px;
+}
+
+.note-status.public::before {
+    content: "🌐";
+    margin-right: 4px;
+}
+
+.note-content {
+    flex: 1;
+    margin-bottom: 12px;
+}
+
+.note-metadata {
+    color: #666;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+}
+
+.note-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.note-actions button {
+    width: 120px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: white;
+    transition: background-color 0.2s;
+}
+
+.delete-button {
+    background-color: #f44336;
+}
+
+.share-button {
+    background-color: #4CAF50;
+}
+
+.public-button {
+    background-color: #2196F3;
 }
 
 .note-preview {
@@ -152,25 +243,6 @@
     font-size: 0.9em;
 }
 
-.delete-btn {
-    background-color: #ffebee;
-    color: #c62828;
-}
-
-.share-btn {
-    background-color: #e8f5e9;
-    color: #388e3c;
-}
-
-.public-btn {
-    background-color: #fff3e0;
-    color: #f57c00;
-}
-
-.note-actions button:hover {
-    filter: brightness(0.95);
-}
-
 .no-notes-message {
     text-align: center;
     color: #666;
@@ -182,21 +254,6 @@
 .note-card.selected {
     border-color: #007bff;
     box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-}
-
-.note-content {
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.note-metadata {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 8px;
-    font-size: 0.9em;
-    color: #666;
 }
 
 .note-owner {

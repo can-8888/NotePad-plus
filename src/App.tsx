@@ -9,12 +9,14 @@ import { Note, NoteApiResponse, NoteStatus } from './types/Note';
 import { api, getCurrentUser } from './services/api';
 import { ShareNoteDialog } from './components/ShareNoteDialog';
 import Modal from './components/Modal';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, BrowserRouter as Router, Navigate } from 'react-router-dom';
+import NotesPage from './pages/NotesPage';
+import Sidebar from './components/Sidebar';
 
 type SortOption = 'date-desc' | 'date-asc' | 'title' | 'category';
 type ViewType = 'my-notes' | 'shared-notes' | 'public-notes';
 
-function AppContent() {
+function App() {
     const { user, logout } = useAuth();
     const [showRegister, setShowRegister] = useState(false);
     const [notes, setNotes] = useState<Note[]>([]);
@@ -345,6 +347,22 @@ function AppContent() {
         }
     };
 
+    const loadPersonalNotes = async () => {
+        try {
+            setIsLoading(true);
+            const fetchedNotes = await api.getNotes();
+            setNotes(fetchedNotes);
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'Failed to load notes');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadPersonalNotes();
+    }, []);
+
     if (!user) {
         return (
             <div className="App">
@@ -353,25 +371,25 @@ function AppContent() {
                 </header>
                 <main className="auth-container">
                     {showRegister ? (
-                        <>
+                        <div>
                             <Register />
-                            <p>
-                                Already have an account?{' '}
-                                <button onClick={() => setShowRegister(false)}>
-                                    Login
-                                </button>
-                            </p>
-                        </>
+                            <button 
+                                className="switch-auth-button"
+                                onClick={() => setShowRegister(false)}
+                            >
+                                Already have an account? Login
+                            </button>
+                        </div>
                     ) : (
-                        <>
+                        <div>
                             <Login />
-                            <p>
-                                Don't have an account?{' '}
-                                <button onClick={() => setShowRegister(true)}>
-                                    Register
-                                </button>
-                            </p>
-                        </>
+                            <button 
+                                className="switch-auth-button"
+                                onClick={() => setShowRegister(true)}
+                            >
+                                Don't have an account? Register
+                            </button>
+                        </div>
                     )}
                 </main>
             </div>
@@ -383,147 +401,25 @@ function AppContent() {
             <header className="App-header">
                 <h1>Notepad+</h1>
                 <div className="user-info">
-                    <span>Welcome, {user?.username}!</span>
+                    <span className="welcome-text">Welcome, {user?.username}!</span>
                     <button className="logout-button" onClick={handleLogout}>
                         Logout
                     </button>
                 </div>
             </header>
-
             <div className="App-layout">
-                <nav className="sidebar">
-                    <button 
-                        className="create-note-button sidebar-create"
-                        onClick={handleCreateNote}
-                    >
-                        Create New Note
-                    </button>
-                    <div className="nav-section">
-                        <div 
-                            className={`nav-item ${currentView === 'my-notes' ? 'active' : ''}`}
-                            onClick={() => handleViewChange('my-notes')}
-                        >
-                            <span className="nav-icon">📁</span>
-                            My Notes
-                        </div>
-                        <div 
-                            className={`nav-item ${currentView === 'shared-notes' ? 'active' : ''}`}
-                            onClick={() => handleViewChange('shared-notes')}
-                        >
-                            <span className="nav-icon">🔄</span>
-                            Notes Shared With Me
-                        </div>
-                        <div 
-                            className={`nav-item ${currentView === 'public-notes' ? 'active' : ''}`}
-                            onClick={() => handleViewChange('public-notes')}
-                        >
-                            <span className="nav-icon">🌐</span>
-                            Public Notes
-                        </div>
-                    </div>
-                </nav>
-
+                <Sidebar />
                 <main className="main-content">
-                    <div className="search-filters">
-                        <input
-                            type="text"
-                            placeholder="Search notes..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="search-input"
-                        />
-                        <select
-                            value={selectedCategory}
-                            onChange={(e) => setSelectedCategory(e.target.value)}
-                            className="category-filter"
-                        >
-                            {renderCategoryOptions()}
-                        </select>
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as SortOption)}
-                            className="sort-select"
-                        >
-                            {renderSortOptions()}
-                        </select>
-                    </div>
-
-                    <div className="notes-container">
-                        {currentView === 'my-notes' && (
-                            <NoteList 
-                                notes={filteredAndSortedNotes}
-                                selectedNote={selectedNote}
-                                onNoteSelect={handleNoteSelect}
-                                onDeleteNote={handleDeleteNote}
-                                onMakePublic={handleMakePublic}
-                                onShare={handleShare}
-                                viewType="my-notes"
-                            />
-                        )}
-                        {currentView === 'shared-notes' && (
-                            <NoteList 
-                                notes={sharedWithMeNotes}
-                                selectedNote={selectedNote}
-                                onNoteSelect={handleNoteSelect}
-                                onDeleteNote={handleDeleteNote}
-                                onMakePublic={handleMakePublic}
-                                onShare={handleShare}
-                                viewType="shared-notes"
-                                isLoading={isLoading}
-                                error={error}
-                            />
-                        )}
-                        {currentView === 'public-notes' && (
-                            <NoteList 
-                                notes={publicNotes}
-                                selectedNote={selectedNote}
-                                onNoteSelect={handleNoteSelect}
-                                onDeleteNote={handleDeleteNote}
-                                onMakePublic={handleMakePublic}
-                                onShare={handleShare}
-                                viewType="public-notes"
-                                isLoading={isLoading}
-                                error={error}
-                            />
-                        )}
-                    </div>
+                    <Routes>
+                        <Route path="/notes" element={<NotesPage viewType="my-notes" />} />
+                        <Route path="/notes/new" element={<NotesPage viewType="my-notes" isCreating={true} />} />
+                        <Route path="/notes/shared" element={<NotesPage viewType="shared" />} />
+                        <Route path="/notes/public" element={<NotesPage viewType="public" />} />
+                        <Route path="/" element={<Navigate to="/notes" replace />} />
+                    </Routes>
                 </main>
             </div>
-
-            <Modal 
-                isOpen={isNoteModalOpen}
-                onClose={handleCloseModal}
-                title={isCreating ? 'Create New Note' : 'Edit Note'}
-            >
-                <NoteEditor 
-                    note={selectedNote}
-                    onSave={async (note) => {
-                        console.log('Save triggered from NoteEditor');
-                        await handleSaveNote(note);
-                    }}
-                    onCancel={() => {
-                        console.log('Cancel triggered from NoteEditor');
-                        handleCloseModal();
-                    }}
-                />
-            </Modal>
-
-            {shareDialogNoteId && (
-                <ShareNoteDialog
-                    noteId={shareDialogNoteId}
-                    onClose={() => setShareDialogNoteId(null)}
-                    onShare={handleShareComplete}
-                />
-            )}
         </div>
-    );
-}
-
-function App() {
-    return (
-        <Routes>
-            <Route path="/*" element={<AppContent />} />
-        </Routes>
     );
 }
 

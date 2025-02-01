@@ -12,17 +12,18 @@ public class Note
     public string Category { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public int UserId { get; set; }
+    public int OwnerId { get; set; }
     public bool IsPublic { get; set; }
     
     public NoteStatus Status { get; set; }
     
-    [JsonIgnore]
-    public virtual User? User { get; set; }
+    public virtual User Owner { get; set; } = null!;
     
     [JsonIgnore]
     public virtual ICollection<User> Collaborators { get; set; } = new List<User>();
 
     [JsonIgnore]
     public virtual ICollection<NoteShare> SharedWith { get; set; } = new List<NoteShare>();
+
+    public virtual ICollection<NotePermission> Permissions { get; set; } = new List<NotePermission>();
 }

@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Note } from '../types/Note';
+import { Note, NoteStatus } from '../types/Note';
 import './NoteEditor.css';  // Make sure this is the exact path
 
 interface NoteEditorProps {
     note?: Note;
-    onSave: (note: Partial<Note>) => Promise<void>;
+    onSave: (note: Partial<Note>) => void;
     onCancel: () => void;
 }
 
@@ -126,26 +126,24 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log('Form submitted');
-        await onSave({
-            id: note?.id,
+        onSave({
             title,
             content,
             category,
-            userId: note?.userId
+            status: NoteStatus.Personal
         });
     };
 
     return (
         <form onSubmit={handleSubmit} className="note-editor">
-            <h2>{note ? 'Edit Note' : 'Create Note'}</h2>
             <input
                 type="text"
-                placeholder="Title"
+                placeholder="Note Title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                required
             />
             <input
                 type="text"
@@ -164,18 +162,16 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
             
             <textarea
                 ref={contentRef}
-                placeholder="Note content..."
+                placeholder="Note Content"
                 value={content}
                 onChange={handleContentChange}
+                required
             />
             <div className="button-group">
-                <button 
-                    type="submit"
-                    disabled={isSaving}
-                >
-                    {isSaving ? 'Saving...' : (note ? 'Save' : 'Create')}
+                <button type="submit" className="save-button" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : 'Save'}
                 </button>
-                <button type="button" onClick={onCancel}>Cancel</button>
+                <button type="button" onClick={onCancel} className="cancel-button">Cancel</button>
             </div>
         </form>
     );
