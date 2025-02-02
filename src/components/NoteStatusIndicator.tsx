@@ -7,6 +7,12 @@ interface NoteStatusIndicatorProps {
     note: Note;
 }
 
+interface SharedUser {
+    id: number;
+    username: string;
+    email: string;
+}
+
 const NoteStatusIndicator: React.FC<NoteStatusIndicatorProps> = ({ note }) => {
     const [showSharedModal, setShowSharedModal] = useState(false);
 
@@ -53,17 +59,10 @@ const NoteStatusIndicator: React.FC<NoteStatusIndicatorProps> = ({ note }) => {
                     title="Shared With"
                 >
                     <div className="shared-users-list">
-                        {note.collaborators?.length ? (
-                            <ul>
-                                {note.collaborators.map((user: User) => (
-                                    <li key={user.id}>
-                                        <span className="username">{user.username}</span>
-                                        <span className="email">({user.email})</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p>No users to display</p>
+                        {note.status === NoteStatus.Shared && (
+                            <div className="shared-info">
+                                <span>Shared with {note.owner?.username}</span>
+                            </div>
                         )}
                     </div>
                 </Modal>

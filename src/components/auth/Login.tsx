@@ -1,18 +1,29 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const { login } = useAuth();
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        setError(null);
+        setIsLoading(true);
+
         try {
-            await login(username, password);
+            const formData = new FormData(e.currentTarget);
+            await login(
+                formData.get('username') as string,
+                formData.get('password') as string
+            );
+            navigate('/notes');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Login failed');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -23,18 +34,16 @@ const Login: React.FC = () => {
             <input
                 type="text"
                 placeholder="Nume utilizator"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                name="username"
                 required
             />
             <input
                 type="password"
                 placeholder="Parolă"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
                 required
             />
-            <button type="submit">Autentificare</button>
+            <button type="submit" disabled={isLoading}>Autentificare</button>
         </form>
     );
 };

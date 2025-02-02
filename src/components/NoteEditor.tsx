@@ -28,7 +28,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
         if (note) {
             setTitle(note.title);
             setContent(note.content);
-            setCategory(note.category);
+            setCategory(note.category || '');
         } else {
             setTitle('');
             setContent('');

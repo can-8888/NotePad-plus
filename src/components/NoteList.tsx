@@ -1,14 +1,14 @@
 import React from 'react';
-import { Note, NoteStatus, getNoteStatus } from '../types/Note';
+import { Note, NoteStatus } from '../types/Note';
 import './NoteList.css';
 
 interface NoteListProps {
     notes: Note[];
     selectedNote?: Note;
     onNoteSelect: (note: Note) => void;
-    onDeleteNote: (id: number) => void;
-    onMakePublic: (id: number) => void;
-    onShare: (id: number) => void;
+    onDeleteNote: (noteId: number) => void;
+    onMakePublic: (noteId: number) => void;
+    onShare: (noteId: number) => void;
     viewType?: string;
     isLoading?: boolean;
     error?: string | null;
@@ -51,6 +51,12 @@ const NoteList: React.FC<NoteListProps> = ({
         }
     };
 
+    const handleMakePublic = (noteId: number) => {
+        console.log('Make public clicked for note:', noteId);
+        console.log('Note details:', notes.find(n => n.id === noteId));
+        onMakePublic(noteId);
+    };
+
     if (isLoading) {
         console.log('Loading state');
         return <div>Loading...</div>;
@@ -73,6 +79,11 @@ const NoteList: React.FC<NoteListProps> = ({
                 >
                     <div className="note-header">
                         <h3 className="note-title">{note.title}</h3>
+                        {note.owner && (
+                            <div className="note-owner">
+                                by {note.owner.username}
+                            </div>
+                        )}
                     </div>
                     
                     <div className="note-right-content">
@@ -95,7 +106,7 @@ const NoteList: React.FC<NoteListProps> = ({
                             {note.status !== NoteStatus.Public && (
                                 <button className="public-button" onClick={(e) => {
                                     e.stopPropagation();
-                                    onMakePublic(note.id);
+                                    handleMakePublic(note.id);
                                 }}>
                                     Make Public
                                 </button>
@@ -109,7 +120,6 @@ const NoteList: React.FC<NoteListProps> = ({
                     
                     <div className="note-metadata">
                         <div>Category: {note.category || 'Uncategorized'}</div>
-                        <div>Owner: {note.owner}</div>
                     </div>
                 </div>
             ))}

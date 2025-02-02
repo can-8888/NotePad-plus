@@ -9,11 +9,11 @@ import NoteEditor from '../components/NoteEditor';
 import { ShareNoteDialog } from '../components/ShareNoteDialog';
 
 interface NotesPageProps {
-    viewType?: 'my-notes' | 'shared' | 'public';
+    type?: 'personal' | 'shared' | 'public';
     isCreating?: boolean;
 }
 
-const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating = false }) => {
+const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = false }) => {
     const [notes, setNotes] = useState<Note[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,40 @@ const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating
     const [shareNoteId, setShareNoteId] = useState<number | null>(null);
     const navigate = useNavigate();
 
-    // Add effect to handle isCreating prop changes
+    // Move loadNotes outside useEffect
+    const loadNotes = async () => {
+        try {
+            console.log('Loading notes...');
+            setIsLoading(true);
+            setError(null);
+            let fetchedNotes: Note[];
+            
+            switch (type) {
+                case 'shared':
+                    fetchedNotes = await api.getSharedNotes();
+                    break;
+                case 'public':
+                    fetchedNotes = await api.getPublicNotes();
+                    break;
+                default:
+                    fetchedNotes = await api.getNotes();
+            }
+            
+            console.log('Fetched notes:', fetchedNotes);
+            setNotes(fetchedNotes);
+        } catch (err) {
+            console.error('Error loading notes:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load notes');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Use loadNotes in useEffect
+    useEffect(() => {
+        loadNotes();
+    }, [type]);
+
     useEffect(() => {
         setIsNoteModalOpen(isCreating);
     }, [isCreating]);
@@ -44,14 +77,15 @@ const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating
         }
     };
 
-    const handleMakePublic = async (id: number) => {
+    const handleMakePublic = async (noteId: number) => {
         try {
-            await api.makeNotePublic(id);
-            // Refresh notes after making public
-            const updatedNotes = await api.getNotes();
-            setNotes(updatedNotes);
-        } catch (err) {
-            console.error('Error making note public:', err);
+            console.log('NotesPage: Making note public:', noteId);
+            console.log('Current notes:', notes);
+            await api.makeNotePublic(noteId);
+            console.log('Note made public successfully');
+            await loadNotes();  // Now this will work
+        } catch (error) {
+            console.error('Error making note public:', error);
         }
     };
 
@@ -102,33 +136,6 @@ const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating
         navigate('/notes', { replace: true });
     };
 
-    useEffect(() => {
-        const fetchNotes = async () => {
-            try {
-                setIsLoading(true);
-                let fetchedNotes;
-                switch (viewType) {
-                    case 'shared':
-                        fetchedNotes = await api.getSharedNotes();
-                        break;
-                    case 'public':
-                        fetchedNotes = await api.getPublicNotes();
-                        break;
-                    default:
-                        fetchedNotes = await api.getNotes();
-                }
-                setNotes(fetchedNotes);
-            } catch (err) {
-                setError('Failed to fetch notes');
-                console.error('Error fetching notes:', err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchNotes();
-    }, [viewType]);
-
     // Get unique categories using Object.keys and reduce
     const categories = notes
         .reduce((acc: { [key: string]: boolean }, note) => {
@@ -147,19 +154,40 @@ const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating
         return matchesSearch && matchesCategory;
     });
 
+    const handleDebugShares = async () => {
+        try {
+            const debugInfo = await api.debugGetAllShares();
+            console.log('Debug info:', debugInfo);
+        } catch (error) {
+            console.error('Error getting debug info:', error);
+        }
+    };
+
+    if (isLoading) return <div>Loading notes...</div>;
+    if (error) return <div>Error: {error}</div>;
+
     return (
         <div className="notes-page">
-            <h1>{viewType === 'shared' ? 'Shared Notes' : viewType === 'public' ? 'Public Notes' : 'My Notes'}</h1>
+            <h1>
+                {type === 'shared' && 'Shared Notes'}
+                {type === 'public' && 'Public Notes'}
+                {type === 'personal' && 'My Notes'}
+            </h1>
             {isNoteModalOpen && (
                 <Modal 
                     isOpen={isNoteModalOpen}
-                    title={selectedNote ? "Edit Note" : "Create New Note"}
-                    onClose={handleCloseModal}
+                    title="Create New Note"
+                    onClose={() => {
+                        setIsNoteModalOpen(false);
+                        navigate('/notes');
+                    }}
                 >
                     <NoteEditor
-                        note={selectedNote || undefined}
                         onSave={handleSaveNote}
-                        onCancel={handleCloseModal}
+                        onCancel={() => {
+                            setIsNoteModalOpen(false);
+                            navigate('/notes');
+                        }}
                     />
                 </Modal>
             )}
@@ -207,17 +235,29 @@ const NotesPage: React.FC<NotesPageProps> = ({ viewType = 'my-notes', isCreating
                     <option value="category">Category</option>
                 </select>
             </div>
-            <div className="notes-container">
-                <NoteList 
-                    notes={filteredNotes}
-                    isLoading={isLoading}
-                    error={error}
-                    onNoteSelect={handleNoteSelect}
-                    onDeleteNote={handleDeleteNote}
-                    onMakePublic={handleMakePublic}
-                    onShare={handleShare}
-                />
-            </div>
+            {notes.length === 0 ? (
+                <div className="empty-state">
+                    <span>No {type} notes found</span>
+                    <span>
+                        {type === 'shared' && 'Notes shared with you will appear here'}
+                        {type === 'public' && 'Public notes from other users will appear here'}
+                        {type === 'personal' && 'Create your first note to get started'}
+                    </span>
+                </div>
+            ) : (
+                <div className="notes-container">
+                    <NoteList 
+                        notes={filteredNotes}
+                        isLoading={isLoading}
+                        error={error}
+                        onNoteSelect={handleNoteSelect}
+                        onDeleteNote={handleDeleteNote}
+                        onMakePublic={handleMakePublic}
+                        onShare={handleShare}
+                    />
+                </div>
+            )}
+            <button onClick={handleDebugShares}>Debug Shares</button>
         </div>
     );
 };

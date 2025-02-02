@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import NoteList from './components/NoteList';
 import NoteEditor from './components/NoteEditor';
@@ -9,15 +9,60 @@ import { Note, NoteApiResponse, NoteStatus } from './types/Note';
 import { api, getCurrentUser } from './services/api';
 import { ShareNoteDialog } from './components/ShareNoteDialog';
 import Modal from './components/Modal';
-import { Routes, Route, useNavigate, useLocation, BrowserRouter as Router, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import NotesPage from './pages/NotesPage';
 import Sidebar from './components/Sidebar';
+import DrivePage from './pages/DrivePage';
+import axios from 'axios';
 
-type SortOption = 'date-desc' | 'date-asc' | 'title' | 'category';
+type SortOption = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'title' | 'category';
 type ViewType = 'my-notes' | 'shared-notes' | 'public-notes';
 
-function App() {
+// Add this near the top of the file with other components
+const AuthRoute = ({ children }: { children: React.ReactNode }) => {
+    const { user } = useAuth();
+    const location = useLocation();
+
+    if (user) {
+        return <Navigate to="/notes" state={{ from: location }} replace />;
+    }
+
+    return <>{children}</>;
+};
+
+// Add this new Layout component
+const Layout = ({ children }: { children: React.ReactNode }) => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
+    return (
+        <div className="app">
+            <header className="app-header">
+                <h1>Notepad+</h1>
+                <div className="user-info">
+                    <span className="welcome-text">Welcome, {user?.username}!</span>
+                    <button className="logout-button" onClick={handleLogout}>
+                        Logout
+                    </button>
+                </div>
+            </header>
+            <div className="app-layout">
+                <Sidebar />
+                <main className="main-content">
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+};
+
+function App() {
+    const { user, isInitialized } = useAuth();
     const [showRegister, setShowRegister] = useState(false);
     const [notes, setNotes] = useState<Note[]>([]);
     const [sharedNotes, setSharedNotes] = useState<Note[]>([]);
@@ -28,8 +73,6 @@ function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [shareDialogNoteId, setShareDialogNoteId] = useState<number | null>(null);
-    const [isCreating, setIsCreating] = useState(false);
-    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
     const [currentView, setCurrentView] = useState<ViewType>('my-notes');
     const [publicNotes, setPublicNotes] = useState<Note[]>([]);
     const [sharedWithMeNotes, setSharedWithMeNotes] = useState<Note[]>([]);
@@ -48,26 +91,17 @@ function App() {
         try {
             setIsLoading(true);
             setError(null);
-            const user = getCurrentUser();
-            console.log('Loading notes for user:', user);
-            
-            // Load all types of notes in parallel
-            const [myNotes, sharedNotes, publicNotes] = await Promise.all([
-                api.getNotes(),
-                api.getSharedNotes(),
-                api.getPublicNotes()
-            ]);
-            
-            console.log('API Response - myNotes:', myNotes);
-            console.log('API Response - shared:', sharedNotes);
-            console.log('API Response - public:', publicNotes);
-            
-            setNotes(myNotes);
-            setSharedWithMeNotes(sharedNotes);
-            setPublicNotes(publicNotes);
-        } catch (err) {
-            console.error('Error loading notes:', err);
-            setError(err instanceof Error ? err.message : 'Failed to load notes');
+            const notesData = await api.getNotes();
+            setNotes(notesData || []);
+        } catch (err: any) { // Type as any for now
+            if (err?.response?.status === 401) {
+                // Handle unauthorized error
+                navigate('/login');
+            } else {
+                setError(err instanceof Error ? err.message : 'Failed to load notes');
+                console.error('Error loading notes:', err);
+            }
+            setNotes([]);
         } finally {
             setIsLoading(false);
         }
@@ -87,23 +121,14 @@ function App() {
         }
     };
 
-    const handleCreateNote = () => {
-        setSelectedNote(undefined);
-        setIsCreating(true);
-        setIsNoteModalOpen(true);
-    };
-
     const handleCloseModal = () => {
         console.log('Modal close triggered');
-        setIsNoteModalOpen(false);
-        setIsCreating(false);
         setSelectedNote(undefined);
     };
 
     const handleNoteSelect = (note: Note) => {
         console.log('Note selected:', note);
         setSelectedNote(note);
-        setIsNoteModalOpen(true);
         console.log('Modal opened');
     };
 
@@ -119,9 +144,7 @@ function App() {
             }
             await loadAllNotes();
             setSelectedNote(undefined);
-            setIsCreating(false);
             console.log('Note saved successfully');
-            setIsNoteModalOpen(false);
         } catch (err) {
             console.error('Failed to save note:', err);
             setError('Failed to save note');
@@ -136,7 +159,7 @@ function App() {
                 return;
             }
 
-            const updatedNote = await api.makeNotePublic(noteId);
+            const updatedNote: Note = await api.makeNotePublic(noteId);
             console.log('Note successfully made public:', updatedNote);
 
             // Update both notes lists
@@ -155,40 +178,68 @@ function App() {
         }
     };
 
-    const sortNotes = (notesToSort: Note[]): Note[] => {
-        return [...notesToSort].sort((a, b) => {
+    const sortNotes = (notes: Note[]): Note[] => {
+        return [...notes].sort((a, b) => {
             switch (sortBy) {
                 case 'date-desc':
-                    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 case 'date-asc':
-                    return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
                 case 'title':
                     return a.title.localeCompare(b.title);
                 case 'category':
-                    return a.category.localeCompare(b.category);
+                    // Handle undefined categories
+                    const categoryA = a.category || '';
+                    const categoryB = b.category || '';
+                    return categoryA.localeCompare(categoryB);
                 default:
                     return 0;
             }
         });
     };
 
-    const filteredAndSortedNotes = sortNotes(
-        notes.filter(note => {
-            // First filter by user
-            if (!user) return false;
-            const userId = user.id ?? 0;
-            const noteUserId = note.userId;
-            if (userId !== noteUserId) return false;
-            
-            // Then filter by search and category
-            if (!note?.title) return false;
-            
-            const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                note.content.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesCategory = !selectedCategory || note.category === selectedCategory;
-            return matchesSearch && matchesCategory;
-        })
-    );
+    const filterNotes = useCallback((notesToFilter: Note[]) => {
+        if (!notesToFilter) return [];
+        
+        let filtered = [...notesToFilter];
+
+        // Apply search filter
+        if (searchTerm) {
+            filtered = filtered.filter(note =>
+                note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                note.content.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Apply category filter
+        if (selectedCategory) {
+            filtered = filtered.filter(note => note.category === selectedCategory);
+        }
+
+        // Apply sorting
+        filtered.sort((a, b) => {
+            switch (sortBy) {
+                case 'date-asc':
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                case 'date-desc':
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                case 'title-asc':
+                    return a.title.localeCompare(b.title);
+                case 'title-desc':
+                    return b.title.localeCompare(a.title);
+                case 'title':
+                    return a.title.localeCompare(b.title);
+                case 'category':
+                    return (a.category || '').localeCompare(b.category || '');
+                default:
+                    return 0;
+            }
+        });
+
+        return filtered;
+    }, [searchTerm, selectedCategory, sortBy]);
+
+    const filteredNotes = filterNotes(notes);
 
     const renderSortOptions = () => {
         const options = [
@@ -222,8 +273,8 @@ function App() {
     // Add debug logging for filtered notes
     useEffect(() => {
         console.log('Current notes:', notes);
-        console.log('Filtered notes:', filteredAndSortedNotes);
-    }, [notes, filteredAndSortedNotes]);
+        console.log('Filtered notes:', filteredNotes);
+    }, [notes, filteredNotes]);
 
     useEffect(() => {
         console.log('Notes state updated:', notes);
@@ -233,16 +284,6 @@ function App() {
     useEffect(() => {
         console.log('Shared notes updated:', sharedNotes);
     }, [sharedNotes]);
-
-    const handleLogout = () => {
-        // Clear UI state
-        setSelectedNote(undefined);
-        setSearchTerm('');
-        setSelectedCategory('');
-        setSortBy('date-desc');
-        // Don't clear notes here, they'll be reloaded on next login
-        logout();
-    };
 
     const handleShare = (noteId: number) => {
         setShareDialogNoteId(noteId);
@@ -265,20 +306,17 @@ function App() {
         }
     };
 
-    const loadSharedWithMeNotes = async () => {
+    const loadSharedNotes = async () => {
         try {
             console.log('Loading shared notes...');
             setIsLoading(true);
-            const shared = await api.getSharedWithMeNotes();
+            const shared = await api.getSharedNotes();
             console.log('Shared notes received:', shared);
             if (Array.isArray(shared)) {
                 setSharedWithMeNotes(shared);
-            } else {
-                console.error('Received invalid shared notes data:', shared);
-                setError('Invalid shared notes data received');
             }
         } catch (err) {
-            console.error('Failed to load shared notes:', err);
+            console.error('Error loading shared notes:', err);
             setError(err instanceof Error ? err.message : 'Failed to load shared notes');
         } finally {
             setIsLoading(false);
@@ -293,7 +331,7 @@ function App() {
                     loadAllNotes();
                     break;
                 case 'shared-notes':
-                    loadSharedWithMeNotes();
+                    loadSharedNotes();
                     break;
                 case 'public-notes':
                     loadPublicNotes();
@@ -310,10 +348,10 @@ function App() {
                 navigate('/notes');
                 break;
             case 'shared-notes':
-                navigate('/notes/shared');
+                navigate('/shared-notes');
                 break;
             case 'public-notes':
-                navigate('/notes/public');
+                navigate('/public-notes');
                 break;
         }
     };
@@ -321,9 +359,9 @@ function App() {
     // Add effect to sync URL with current view
     useEffect(() => {
         const path = location.pathname;
-        if (path === '/notes/public' && currentView !== 'public-notes') {
+        if (path === '/public-notes' && currentView !== 'public-notes') {
             setCurrentView('public-notes');
-        } else if (path === '/notes/shared' && currentView !== 'shared-notes') {
+        } else if (path === '/shared-notes' && currentView !== 'shared-notes') {
             setCurrentView('shared-notes');
         } else if (path === '/notes' && currentView !== 'my-notes') {
             setCurrentView('my-notes');
@@ -347,78 +385,70 @@ function App() {
         }
     };
 
-    const loadPersonalNotes = async () => {
-        try {
-            setIsLoading(true);
-            const fetchedNotes = await api.getNotes();
-            setNotes(fetchedNotes);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Failed to load notes');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    // Show loading state while auth is initializing
+    if (!isInitialized) {
+        return <div>Loading...</div>;
+    }
 
-    useEffect(() => {
-        loadPersonalNotes();
-    }, []);
-
+    // If not authenticated, only render auth routes
     if (!user) {
         return (
-            <div className="App">
-                <header className="App-header">
-                    <h1>Notepad+</h1>
-                </header>
-                <main className="auth-container">
-                    {showRegister ? (
-                        <div>
-                            <Register />
-                            <button 
-                                className="switch-auth-button"
-                                onClick={() => setShowRegister(false)}
-                            >
-                                Already have an account? Login
-                            </button>
-                        </div>
-                    ) : (
-                        <div>
+            <Routes>
+                <Route path="/login" element={
+                    <AuthRoute>
+                        <div className="auth-container">
                             <Login />
-                            <button 
-                                className="switch-auth-button"
-                                onClick={() => setShowRegister(true)}
-                            >
-                                Don't have an account? Register
-                            </button>
                         </div>
-                    )}
-                </main>
-            </div>
+                    </AuthRoute>
+                } />
+                <Route path="/register" element={
+                    <AuthRoute>
+                        <div className="auth-container">
+                            <Register />
+                        </div>
+                    </AuthRoute>
+                } />
+                <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
         );
     }
 
+    // Rest of your render logic for authenticated users
     return (
         <div className="App">
-            <header className="App-header">
-                <h1>Notepad+</h1>
-                <div className="user-info">
-                    <span className="welcome-text">Welcome, {user?.username}!</span>
-                    <button className="logout-button" onClick={handleLogout}>
-                        Logout
-                    </button>
-                </div>
-            </header>
-            <div className="App-layout">
-                <Sidebar />
-                <main className="main-content">
-                    <Routes>
-                        <Route path="/notes" element={<NotesPage viewType="my-notes" />} />
-                        <Route path="/notes/new" element={<NotesPage viewType="my-notes" isCreating={true} />} />
-                        <Route path="/notes/shared" element={<NotesPage viewType="shared" />} />
-                        <Route path="/notes/public" element={<NotesPage viewType="public" />} />
-                        <Route path="/" element={<Navigate to="/notes" replace />} />
-                    </Routes>
-                </main>
-            </div>
+            <Routes>
+                {/* Protected routes */}
+                <Route path="/" element={
+                    <Layout>
+                        <Navigate to="/notes" replace />
+                    </Layout>
+                } />
+                <Route path="/notes" element={
+                    <Layout>
+                        <NotesPage />
+                    </Layout>
+                } />
+                <Route path="/notes/new" element={
+                    <Layout>
+                        <NotesPage isCreating={true} />
+                    </Layout>
+                } />
+                <Route path="/shared-notes" element={
+                    <Layout>
+                        <NotesPage type="shared" />
+                    </Layout>
+                } />
+                <Route path="/public-notes" element={
+                    <Layout>
+                        <NotesPage type="public" />
+                    </Layout>
+                } />
+                <Route path="/drive" element={
+                    <Layout>
+                        <DrivePage />
+                    </Layout>
+                } />
+            </Routes>
         </div>
     );
 }

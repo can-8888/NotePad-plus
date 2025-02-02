@@ -2,7 +2,8 @@ import { api } from './api';
 import { Note } from '../types/Note';
 
 export const getNotes = async (): Promise<Note[]> => {
-    return await api.getNotes();
+    const notes = await api.getNotes();
+    return notes;
 };
 
 export const createNote = async (note: Partial<Note>): Promise<Note> => {

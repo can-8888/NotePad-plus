@@ -1,7 +1,7 @@
 export enum NoteStatus {
-    Personal = 'Personal',
-    Shared = 'Shared',
-    Public = 'Public'
+    Personal = 'Personal',  // 0
+    Shared = 'Shared',     // 1
+    Public = 'Public'      // 2
 }
 
 export interface User {
@@ -15,15 +15,14 @@ export interface Note {
     id: number;
     title: string;
     content: string;
-    category: string;
-    userId: number;
-    owner: string;
-    status: NoteStatus;
-    isPublic: boolean;
+    category?: string;
     createdAt: Date;
     updatedAt: Date;
-    user?: User;
-    collaborators?: User[];
+    isPublic: boolean;
+    status: NoteStatus;
+    owner?: User;
+    ownerId: number;
+    sharedWith?: User[];
 }
 
 export interface NoteApiResponse {
@@ -33,19 +32,38 @@ export interface NoteApiResponse {
     category: string;
     createdAt: string;  // API returns dates as strings
     updatedAt: string;
-    userId: number;
     isPublic: boolean;
     status: NoteStatus;
-    owner: string;  // Add owner to match Note interface
-    user?: User;
+    owner: {
+        id: number;
+        username: string;
+        email: string;
+    };
+    ownerId: number;
 }
 
-// Helper function to convert API response to Note
+export interface ApiResponse<T> {
+    data: T;
+    // ... any other response properties
+}
+
+// Update the converter function to handle the new owner structure
 export const convertApiResponseToNote = (apiNote: NoteApiResponse): Note => ({
-    ...apiNote,
+    id: apiNote.id,
+    title: apiNote.title,
+    content: apiNote.content,
+    category: apiNote.category,
     createdAt: new Date(apiNote.createdAt),
     updatedAt: new Date(apiNote.updatedAt),
-    status: apiNote.status
+    isPublic: apiNote.isPublic,
+    status: getNoteStatus(apiNote.status),
+    owner: apiNote.owner ? {
+        id: apiNote.owner.id,
+        username: apiNote.owner.username,
+        email: apiNote.owner.email,
+        createdAt: new Date()  // Since API doesn't provide this, use current date
+    } : undefined,
+    ownerId: apiNote.ownerId
 });
 
 // Helper function to ensure proper status conversion

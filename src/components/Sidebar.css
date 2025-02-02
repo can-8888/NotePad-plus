@@ -1,0 +1,75 @@
+.sidebar {
+    width: 250px;
+    background-color: #f5f5f5;
+    border-right: 1px solid #e0e0e0;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.create-note-container {
+    margin-bottom: 20px;
+    width: 100%;
+    display: flex;
+}
+
+.create-note-button {
+    display: flex;
+    width: 100%;
+    padding: 12px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    align-items: center;
+    justify-content: center;
+}
+
+.create-note-button::before {
+    content: "+";
+    margin-right: 8px;
+    font-size: 20px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.create-note-button:hover {
+    background-color: #45a049;
+}
+
+.nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.nav-item:hover {
+    background-color: #e0e0e0;
+}
+
+.nav-icon {
+    margin-right: 10px;
+    font-size: 1.2em;
+} 
