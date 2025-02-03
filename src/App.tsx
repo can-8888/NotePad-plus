@@ -433,17 +433,22 @@ function App() {
                         <NotesPage isCreating={true} />
                     </Layout>
                 } />
-                <Route path="/shared-notes" element={
+                <Route path="/notes/shared" element={
                     <Layout>
                         <NotesPage type="shared" />
                     </Layout>
                 } />
-                <Route path="/public-notes" element={
+                <Route path="/notes/public" element={
                     <Layout>
                         <NotesPage type="public" />
                     </Layout>
                 } />
                 <Route path="/drive" element={
+                    <Layout>
+                        <DrivePage />
+                    </Layout>
+                } />
+                <Route path="/drive/:folderName" element={
                     <Layout>
                         <DrivePage />
                     </Layout>

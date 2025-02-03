@@ -2,19 +2,20 @@ export interface DriveFile {
     id: number;
     name: string;
     size: number;
-    type: string;
+    contentType: string;
     userId: number;
     url: string;
-    createdAt: Date;
+    uploadedAt: string;
     isPublic: boolean;
     folderId: number | null;
+    path?: string;
 }
 
 export interface Folder {
     id: number;
     name: string;
     userId: number;
-    createdAt: Date;
+    createdAt: string | Date;
     parentId: number | null;
 }
 

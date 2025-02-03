@@ -44,7 +44,6 @@ export interface NoteApiResponse {
 
 export interface ApiResponse<T> {
     data: T;
-    // ... any other response properties
 }
 
 // Update the converter function to handle the new owner structure

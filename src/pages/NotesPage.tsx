@@ -36,19 +36,27 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
             switch (type) {
                 case 'shared':
                     fetchedNotes = await api.getSharedNotes();
+                    console.log('Fetched shared notes:', fetchedNotes);
                     break;
                 case 'public':
                     fetchedNotes = await api.getPublicNotes();
+                    console.log('Fetched public notes:', fetchedNotes);
                     break;
                 default:
                     fetchedNotes = await api.getNotes();
+                    console.log('Fetched personal notes:', fetchedNotes);
             }
             
-            console.log('Fetched notes:', fetchedNotes);
+            if (!Array.isArray(fetchedNotes)) {
+                console.warn('Fetched notes is not an array:', fetchedNotes);
+                fetchedNotes = [];
+            }
+            
             setNotes(fetchedNotes);
         } catch (err) {
             console.error('Error loading notes:', err);
             setError(err instanceof Error ? err.message : 'Failed to load notes');
+            setNotes([]);
         } finally {
             setIsLoading(false);
         }
@@ -154,15 +162,6 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
         return matchesSearch && matchesCategory;
     });
 
-    const handleDebugShares = async () => {
-        try {
-            const debugInfo = await api.debugGetAllShares();
-            console.log('Debug info:', debugInfo);
-        } catch (error) {
-            console.error('Error getting debug info:', error);
-        }
-    };
-
     if (isLoading) return <div>Loading notes...</div>;
     if (error) return <div>Error: {error}</div>;
 
@@ -257,7 +256,6 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
                     />
                 </div>
             )}
-            <button onClick={handleDebugShares}>Debug Shares</button>
         </div>
     );
 };
