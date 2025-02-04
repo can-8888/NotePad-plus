@@ -64,6 +64,7 @@ const DrivePage: React.FC = () => {
                     console.log('Root files:', filesData);
                     setFiles(filesData);
                 }
+<<<<<<< HEAD
             } catch (err: any) {
                 console.error('Error loading initial data:', err);
                 const errorMessage = err?.response?.data?.message || err?.message || 'Failed to load drive contents';
@@ -75,6 +76,11 @@ const DrivePage: React.FC = () => {
                     console.error('Response status:', err.response.status);
                     console.error('Response headers:', err.response.headers);
                 }
+=======
+            } catch (err) {
+                console.error('Error loading initial data:', err);
+                setError('Failed to load drive contents');
+>>>>>>> b1ff0ad4ef35834b6106525e7b5546ea38451dbc
             } finally {
                 setIsLoading(false);
             }
@@ -276,7 +282,11 @@ const DrivePage: React.FC = () => {
                         className="create-new-button"
                         onClick={() => setShowNewFolderDialog(true)}
                     >
+<<<<<<< HEAD
                         New folder
+=======
+                        Create new +
+>>>>>>> b1ff0ad4ef35834b6106525e7b5546ea38451dbc
                     </button>
                 </div>
             </div>
@@ -316,8 +326,22 @@ const DrivePage: React.FC = () => {
                             className="create-folder-button"
                             onClick={() => setShowNewFolderDialog(true)}
                         >
+<<<<<<< HEAD
                             New folder
                         </button>
+=======
+                            Create new folder +
+                        </button>
+                        <div className="tips">
+                            <p>A few tips to start:</p>
+                            <ol>
+                                <li>Each folder and file has a link</li>
+                                <li>Install apps and backup automatically</li>
+                                <li>Change the access rights of the link to "Private" or set a password</li>
+                                <li>Disable ads by subscribing to PRO</li>
+                            </ol>
+                        </div>
+>>>>>>> b1ff0ad4ef35834b6106525e7b5546ea38451dbc
                     </div>
                 ) : (
                     <div className="files-container">
