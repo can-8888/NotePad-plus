@@ -1,47 +1,48 @@
 import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import './Sidebar.css';  // Make sure this exists
 
 const Sidebar: React.FC = () => {
-    const navigate = useNavigate();
-
     return (
         <nav className="sidebar">
             <div className="sidebar-content">
                 <div className="create-note-container">
-                    <Link to="/notes/new" className="create-note-button">
+                    <NavLink to="/notes/new" className="create-note-button">
                         Create New Note
-                    </Link>
+                    </NavLink>
                 </div>
                 <div className="nav-section">
-                    <div 
-                        className="nav-item"
-                        onClick={() => navigate('/notes')}
+                    <NavLink 
+                        to="/notes" 
+                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                     >
                         <span className="nav-icon">📁</span>
                         My Notes
-                    </div>
-                    <div 
-                        className="nav-item"
-                        onClick={() => navigate('/shared-notes')}
+                    </NavLink>
+                    
+                    <NavLink 
+                        to="/notes/shared" 
+                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                     >
                         <span className="nav-icon">🔄</span>
                         Shared Notes
-                    </div>
-                    <div 
-                        className="nav-item"
-                        onClick={() => navigate('/public-notes')}
+                    </NavLink>
+                    
+                    <NavLink 
+                        to="/notes/public" 
+                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                     >
                         <span className="nav-icon">🌐</span>
                         Public Notes
-                    </div>
-                    <div 
-                        className="nav-item"
-                        onClick={() => navigate('/drive')}
+                    </NavLink>
+                    
+                    <NavLink 
+                        to="/drive" 
+                        className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                     >
                         <span className="nav-icon">💾</span>
                         My Drive
-                    </div>
+                    </NavLink>
                 </div>
             </div>
         </nav>

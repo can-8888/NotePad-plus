@@ -1,18 +1,24 @@
 .drive-page {
     padding: 1rem;
     background-color: #f8f9fa;
-    height: 100%;
+    height: calc(100vh - 60px);
+    display: flex;
+    flex-direction: column;
 }
 
 .drive-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.5rem;
-    padding: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #ddd;
     background: white;
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+}
+
+.header-left {
+    flex: 1;
 }
 
 .header-left h2 {
@@ -23,39 +29,39 @@
 
 .header-actions {
     display: flex;
-    gap: 1rem;
+    gap: 3.5rem;
     align-items: center;
-    align-content: flex-end;
+    margin-left: auto;
 }
 
 .search-box {
     position: relative;
     width: 250px;
+    margin-right: 1rem;
 }
 
 .search-box input {
     width: 100%;
-    padding: 0.5rem 2rem 0.5rem 0.8rem;
+    padding: 8px 32px 8px 12px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 0.9rem;
 }
 
 .search-icon {
     position: absolute;
-    right: 0.5rem;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: #666;
 }
 
-.upload-button, .create-new-button {
-    padding: 0.5rem 1rem;
+.upload-button,
+.create-new-button {
+    padding: 8px 16px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9rem;
-    transition: background-color 0.2s;
+    white-space: nowrap;
 }
 
 .upload-button {
@@ -113,34 +119,35 @@
 }
 
 .file-item {
-    display: flex;
-    align-items: center;
-    padding: 0.8rem 1rem;
-    border-bottom: 1px solid #eee;
-}
-
-.file-item:last-child {
-    border-bottom: none;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 0.75rem;
+    min-height: 100px;
 }
 
 .file-item:hover {
-    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .file-icon {
-    font-size: 1.5rem;
-    margin-right: 1rem;
-    width: 40px;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    width: auto;
     text-align: center;
 }
 
 .file-info {
-    flex: 1;
+    width: 100%;
+    text-align: center;
 }
 
 .file-name {
     font-weight: 500;
     color: #333;
+    word-break: break-word;
+    margin-bottom: 0.25rem;
 }
 
 .file-meta {
@@ -149,11 +156,14 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 .file-actions {
     display: flex;
     gap: 0.5rem;
+    margin-top: 0.5rem;
     opacity: 0;
     transition: opacity 0.2s;
 }
@@ -220,10 +230,15 @@
 
 .folder-item {
     cursor: pointer;
+    background-color: #f8f9fa;
 }
 
 .folder-item:hover {
     background-color: #f0f0f0;
+}
+
+.folder-item .file-icon {
+    color: #ffd700;
 }
 
 .new-folder-dialog {
@@ -258,4 +273,23 @@
 .new-folder-dialog button:last-of-type {
     background-color: #f5f5f5;
     color: #333;
+}
+
+.drive-content {
+    flex: 1;
+    overflow-y: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 1rem;
+    margin-top: 0;
+}
+
+.files-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+    padding: 0.5rem;
+    background: transparent;
+    box-shadow: none;
 } 

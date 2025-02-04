@@ -1,0 +1,65 @@
+.note-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: white;
+}
+
+.note-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.note-title {
+    flex: 1;
+}
+
+.note-title h3 {
+    margin: 0 0 8px 0;
+}
+
+.note-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.note-author {
+    white-space: nowrap;
+}
+
+.note-status {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+}
+
+.note-status.shared {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.note-status.public {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.note-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.note-content {
+    margin: 12px 0;
+}
+
+.note-footer {
+    margin-top: 12px;
+    font-size: 0.9em;
+    color: #666;
+} 

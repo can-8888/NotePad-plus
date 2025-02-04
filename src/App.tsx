@@ -14,6 +14,10 @@ import NotesPage from './pages/NotesPage';
 import Sidebar from './components/Sidebar';
 import DrivePage from './pages/DrivePage';
 import axios from 'axios';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import NotificationBell from './components/NotificationBell';
+import { signalRService } from './services/signalRService';
 
 type SortOption = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'title' | 'category';
 type ViewType = 'my-notes' | 'shared-notes' | 'public-notes';
@@ -44,11 +48,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <div className="app">
             <header className="app-header">
                 <h1>Notepad+</h1>
-                <div className="user-info">
-                    <span className="welcome-text">Welcome, {user?.username}!</span>
-                    <button className="logout-button" onClick={handleLogout}>
-                        Logout
-                    </button>
+                <div className="header-right">
+                    <NotificationBell />
+                    <div className="user-info">
+                        <span className="welcome-text">Welcome, {user?.username}!</span>
+                        <button className="logout-button" onClick={handleLogout}>
+                            Logout
+                        </button>
+                    </div>
                 </div>
             </header>
             <div className="app-layout">
@@ -385,6 +392,23 @@ function App() {
         }
     };
 
+    useEffect(() => {
+        let mounted = true;
+
+        const initializeSignalR = async () => {
+            if (user) {  // Only connect if user is logged in
+                await signalRService.startConnection();
+            }
+        };
+
+        initializeSignalR();
+
+        return () => {
+            mounted = false;
+            signalRService.stopConnection();
+        };
+    }, [user]); // Add user as dependency to reconnect when user changes
+
     // Show loading state while auth is initializing
     if (!isInitialized) {
         return <div>Loading...</div>;
@@ -394,20 +418,8 @@ function App() {
     if (!user) {
         return (
             <Routes>
-                <Route path="/login" element={
-                    <AuthRoute>
-                        <div className="auth-container">
-                            <Login />
-                        </div>
-                    </AuthRoute>
-                } />
-                <Route path="/register" element={
-                    <AuthRoute>
-                        <div className="auth-container">
-                            <Register />
-                        </div>
-                    </AuthRoute>
-                } />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
                 <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         );
@@ -433,17 +445,22 @@ function App() {
                         <NotesPage isCreating={true} />
                     </Layout>
                 } />
-                <Route path="/shared-notes" element={
+                <Route path="/notes/shared" element={
                     <Layout>
                         <NotesPage type="shared" />
                     </Layout>
                 } />
-                <Route path="/public-notes" element={
+                <Route path="/notes/public" element={
                     <Layout>
                         <NotesPage type="public" />
                     </Layout>
                 } />
                 <Route path="/drive" element={
+                    <Layout>
+                        <DrivePage />
+                    </Layout>
+                } />
+                <Route path="/drive/:folderName" element={
                     <Layout>
                         <DrivePage />
                     </Layout>

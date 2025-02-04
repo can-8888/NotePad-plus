@@ -3,17 +3,27 @@ import NoteList from '../components/NoteList';
 import { Note } from '../types/Note';
 import { api } from '../services/api';
 import './NotesPage.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Modal from '../components/Modal';
 import NoteEditor from '../components/NoteEditor';
 import { ShareNoteDialog } from '../components/ShareNoteDialog';
 
+interface LocationState {
+    type?: 'public' | 'shared';
+}
+
 interface NotesPageProps {
-    type?: 'personal' | 'shared' | 'public';
+    type?: string;
     isCreating?: boolean;
 }
 
-const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = false }) => {
+const NotesPage: React.FC<NotesPageProps> = ({ type: propType, isCreating = false }) => {
+    const location = useLocation();
+    const locationState = location.state as LocationState;
+    
+    // Use type from props or location state
+    const noteType = propType || locationState?.type || 'my-notes';
+
     const [notes, setNotes] = useState<Note[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,22 +43,30 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
             setError(null);
             let fetchedNotes: Note[];
             
-            switch (type) {
+            switch (noteType) {
                 case 'shared':
                     fetchedNotes = await api.getSharedNotes();
+                    console.log('Fetched shared notes:', fetchedNotes);
                     break;
                 case 'public':
                     fetchedNotes = await api.getPublicNotes();
+                    console.log('Fetched public notes:', fetchedNotes);
                     break;
                 default:
                     fetchedNotes = await api.getNotes();
+                    console.log('Fetched personal notes:', fetchedNotes);
             }
             
-            console.log('Fetched notes:', fetchedNotes);
+            if (!Array.isArray(fetchedNotes)) {
+                console.warn('Fetched notes is not an array:', fetchedNotes);
+                fetchedNotes = [];
+            }
+            
             setNotes(fetchedNotes);
         } catch (err) {
             console.error('Error loading notes:', err);
             setError(err instanceof Error ? err.message : 'Failed to load notes');
+            setNotes([]);
         } finally {
             setIsLoading(false);
         }
@@ -56,8 +74,16 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
 
     // Use loadNotes in useEffect
     useEffect(() => {
-        loadNotes();
-    }, [type]);
+        console.log('NotesPage type:', noteType);
+        // Load notes based on type
+        if (noteType === 'public') {
+            loadNotes();
+        } else if (noteType === 'shared') {
+            loadNotes();
+        } else {
+            loadNotes();
+        }
+    }, [noteType]);
 
     useEffect(() => {
         setIsNoteModalOpen(isCreating);
@@ -154,24 +180,15 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
         return matchesSearch && matchesCategory;
     });
 
-    const handleDebugShares = async () => {
-        try {
-            const debugInfo = await api.debugGetAllShares();
-            console.log('Debug info:', debugInfo);
-        } catch (error) {
-            console.error('Error getting debug info:', error);
-        }
-    };
-
     if (isLoading) return <div>Loading notes...</div>;
     if (error) return <div>Error: {error}</div>;
 
     return (
         <div className="notes-page">
             <h1>
-                {type === 'shared' && 'Shared Notes'}
-                {type === 'public' && 'Public Notes'}
-                {type === 'personal' && 'My Notes'}
+                {noteType === 'shared' && 'Shared Notes'}
+                {noteType === 'public' && 'Public Notes'}
+                {noteType === 'my-notes' && 'My Notes'}
             </h1>
             {isNoteModalOpen && (
                 <Modal 
@@ -237,11 +254,11 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
             </div>
             {notes.length === 0 ? (
                 <div className="empty-state">
-                    <span>No {type} notes found</span>
+                    <span>No {noteType} notes found</span>
                     <span>
-                        {type === 'shared' && 'Notes shared with you will appear here'}
-                        {type === 'public' && 'Public notes from other users will appear here'}
-                        {type === 'personal' && 'Create your first note to get started'}
+                        {noteType === 'shared' && 'Notes shared with you will appear here'}
+                        {noteType === 'public' && 'Public notes from other users will appear here'}
+                        {noteType === 'my-notes' && 'Create your first note to get started'}
                     </span>
                 </div>
             ) : (
@@ -257,7 +274,6 @@ const NotesPage: React.FC<NotesPageProps> = ({ type = 'personal', isCreating = f
                     />
                 </div>
             )}
-            <button onClick={handleDebugShares}>Debug Shares</button>
         </div>
     );
 };

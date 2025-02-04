@@ -512,13 +512,15 @@
 }
 
 .app-header {
-    background-color: #282c34;
-    padding: 0.6rem 1.5rem;
+    background-color: #282c34; /* Dark theme color */
+    padding: 1rem 2rem;
     color: white;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); /* Slightly darker shadow for dark theme */
 }
 
 .app-header h1 {
@@ -526,33 +528,31 @@
     font-size: 1.5rem;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
 .user-info {
     display: flex;
-    flex-direction: row;  /* align-items: row is incorrect syntax */
-    align-items: center;  /* vertically center the items */
-    justify-content: flex-end;  /* align items to the right */
+    align-items: center;
     gap: 1rem;
-    margin-left: auto;
-} 
+}
 
 .welcome-text {
-    font-size: 1.2rem;
-    white-space: nowrap;
-    line-height: 1;
+    color: white;
+    font-size: 1rem;
 }
 
 .logout-button {
-    padding: 0.3rem 0.8rem;
     background-color: rgba(255, 255, 255, 0.1);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9rem;
     transition: background-color 0.2s;
-    white-space: nowrap;
-    line-height: 1;
-    margin-left: 0.5rem;
 }
 
 .logout-button:hover {

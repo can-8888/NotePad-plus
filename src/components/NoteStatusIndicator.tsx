@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Note, NoteStatus, User, getNoteStatus } from '../types/Note';
+import { Note, NoteStatus, getNoteStatus } from '../types/Note';
+import { User } from '../types/Auth';
 import Modal from './Modal';
 import './NoteStatusIndicator.css';
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '../types/Note';
+import { User } from '../types/Auth';
 import { api, getCurrentUser } from '../services/api';
 import './ShareNoteDialog.css';
 

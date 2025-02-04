@@ -1,14 +1,16 @@
+import { User } from './Auth';
+
 export enum NoteStatus {
     Personal = 'Personal',  // 0
     Shared = 'Shared',     // 1
     Public = 'Public'      // 2
 }
 
-export interface User {
-    id: number;
-    username: string;
-    email: string;
-    createdAt: Date;
+export interface NoteShare {
+    noteId: number;
+    userId: number;
+    user?: User;
+    sharedAt: string;
 }
 
 export interface Note {
@@ -16,13 +18,13 @@ export interface Note {
     title: string;
     content: string;
     category?: string;
-    createdAt: Date;
-    updatedAt: Date;
+    createdAt: string;
+    updatedAt: string;
     isPublic: boolean;
     status: NoteStatus;
     owner?: User;
-    ownerId: number;
-    sharedWith?: User[];
+    userId: number;
+    noteShares?: NoteShare[];
 }
 
 export interface NoteApiResponse {
@@ -38,13 +40,14 @@ export interface NoteApiResponse {
         id: number;
         username: string;
         email: string;
+        name: string;
+        createdAt: string;
     };
     ownerId: number;
 }
 
 export interface ApiResponse<T> {
     data: T;
-    // ... any other response properties
 }
 
 // Update the converter function to handle the new owner structure
@@ -53,17 +56,18 @@ export const convertApiResponseToNote = (apiNote: NoteApiResponse): Note => ({
     title: apiNote.title,
     content: apiNote.content,
     category: apiNote.category,
-    createdAt: new Date(apiNote.createdAt),
-    updatedAt: new Date(apiNote.updatedAt),
+    createdAt: apiNote.createdAt,
+    updatedAt: apiNote.updatedAt,
     isPublic: apiNote.isPublic,
     status: getNoteStatus(apiNote.status),
     owner: apiNote.owner ? {
         id: apiNote.owner.id,
         username: apiNote.owner.username,
         email: apiNote.owner.email,
-        createdAt: new Date()  // Since API doesn't provide this, use current date
+        name: apiNote.owner.name,
+        createdAt: apiNote.owner.createdAt
     } : undefined,
-    ownerId: apiNote.ownerId
+    userId: apiNote.ownerId
 });
 
 // Helper function to ensure proper status conversion

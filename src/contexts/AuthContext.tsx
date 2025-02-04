@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from '../types/Note';
+import { User, LoginResponse } from '../types/Auth';
 import { api } from '../services/api';
 import axios from 'axios';
 
@@ -9,7 +9,7 @@ interface AuthContextType {
     isInitialized: boolean;
     login: (username: string, password: string) => Promise<void>;
     logout: () => void;
-    register: (username: string, email: string, password: string) => Promise<void>;
+    register: (username: string, email: string, password: string, name?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,34 +77,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const login = async (username: string, password: string) => {
         try {
             const response = await api.login({ username, password });
-            console.log('Login response:', response); // Debug log
+            console.log('Login response:', response);
             
             if (!response.user || !response.token) {
-                throw new Error('Invalid login response format');
+                throw new Error('Invalid response format');
             }
-            
+
             setUser(response.user);
             setToken(response.token);
             localStorage.setItem('user', JSON.stringify(response.user));
             localStorage.setItem('token', response.token);
         } catch (error) {
-            console.error('Login failed:', error);
-            // Clean up any partial data
-            setUser(null);
-            setToken(null);
-            localStorage.removeItem('user');
-            localStorage.removeItem('token');
+            console.error('Login error:', error);
             throw error;
         }
     };
 
-    const register = async (username: string, email: string, password: string) => {
+    const register = async (username: string, email: string, password: string, name?: string) => {
         try {
-            const userData = await api.register({ username, email, password });
-            setUser(userData);
-            localStorage.setItem('user', JSON.stringify(userData));
+            const response = await api.register({ username, email, password, name });
+            // Set user and token from registration response
+            setUser(response.user);
+            setToken(response.token);
+            localStorage.setItem('user', JSON.stringify(response.user));
+            localStorage.setItem('token', response.token);
         } catch (error) {
-            console.error('Registration failed:', error);
+            console.error('Register error:', error);
             throw error;
         }
     };
