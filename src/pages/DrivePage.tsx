@@ -55,6 +55,8 @@ const DrivePage: React.FC = () => {
                     } else {
                         console.log('Folder not found:', folderPath);
                         setError(`Folder "${folderPath}" not found`);
+=======
+>>>>>>> b1ff0ad4ef35834b6106525e7b5546ea38451dbc
                     }
                 } else {
                     console.log('Loading root files');
